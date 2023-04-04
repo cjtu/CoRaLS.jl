@@ -1,0 +1,117 @@
+using Distributions
+using Unitful: EeV, g, cm, C
+
+"""
+    estimate_Xmax(Ecr)
+
+Estimate the mean and variation in Xmax for a given cosmic ray energy.
+
+Use the Auger fits to Xmax and σ(Xmax) from:
+    https://www.icrc2019.org/uploads/1/1/9/0/
+        119067782/yushkov_auger_icrc2019_mass1_talk_final.pdf
+
+This is only valid up to 1e20.5 (VERIFY THIS).
+"""
+function estimate_Xmax(Ecr)
+
+    # calculate the cosmic ray energy in log-space
+    lEcr = 18.0 + log10(Ecr / 1EeV)
+
+    # check that the range is sensible
+    if lEcr > 20.8
+        error("1e20.8 is above the range of `estimate_Xmax`")
+    end
+
+    # estimate the mean using a two-element linear fit
+    if lEcr <= 19.0
+        mean = 730.0g/cm^2 + ((760.0g/cm^2 - 730.0g/cm^2)/(19.0 - 18.0))*(lEcr - 18.0)
+    else
+        mean = 760.0g/cm^2 + ((780.0g/cm^2 - 760.0g/cm^2)/(19.6 - 19.0))*(lEcr - 19.0)
+    end
+
+    # and estimate the sigma using a similar two-piece linear fit
+    if lEcr <= 18.51
+        sigma = 59.0g/cm^2 + ((51.0g/cm^2 - 59.0g/cm^2)/(18.51 - 18.0))*(lEcr - 18.0)
+    else
+        sigma = 51.0g/cm^2 + ((25.0g/cm^2 - 51.0g/cm^2)/(19.71 - 18.51))*(lEcr - 18.51)
+    end
+
+    # return the mean and a positive standard deviation
+    return mean, max(sigma, 0.0g/cm^2)
+end
+
+"""
+    propagate_to_Xmax(origin, direction, Ecr)
+
+Propagate a cosmic ray from the surface to Xmax.
+"""
+function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
+
+    # get the mean Xmax and variation at this cosmic ray energy
+    Xmax, σ = estimate_Xmax(Ecr)
+
+    # throw for the actual grammage at shower max - assume
+    # normally distributed around `Xmax` with mean `σ`
+    Xint = rand(Normal(Xmax / (g/cm^2), σ / (g/cm^2)))g/cm^2
+
+    # to do this integration in 1D, we need the polar angle
+    # of the cosmic ray w.r.t the local surface
+    # this assumes that the cosmic ray interacts almost immediately
+    # near the surface since it is uses the local tangent plane
+    # at the interaction location for all depth calculations
+    # This is easy to make in 3D but is >3x as computationally expensive
+    # We also assume `direction` is normalized
+    ctheta = (origin / norm(origin)) ⋅ (-direction)
+
+    # we integrate grammage here
+    X = 0g/cm^2
+
+    # our step size for this integration
+    dl = 2cm
+
+    # now propagate along `l` until we get to Xint
+    for l in 0m:dl:20m
+
+        # calculate the depth in this 1D system
+        depth = l * ctheta
+
+        # get the density at this depth
+        density = regolith_density(densitymodel, depth)
+
+        # add the integrated grammage to our total grammage
+        X += dl*density
+
+        # and check for an interaction
+        if X >= Xint
+            # calculate Xmax which is `l` along direction
+            return origin + l*direction
+        end
+
+    end
+
+    # if we get here, we didn't reach Xmax, this should never happen in
+    # the current simulation.
+    error("Xmax was not reached during propagation of the cosmic ray.")
+
+end
+
+"""
+
+Return the profile of excess shower charge (Coloumbs).
+"""
+function charge_excess_profile(Ecr::typeof(1.0EeV))
+
+    # TODO: These need to be run at a wider variety of energies
+    # these are taken from a ZHAireS shower at 1e20
+    Xmax = 1733.16g/cm^2
+    X0 = 1165.35g/cm^2
+    λ = 87.8409g/cm^2
+    ρ = 1.8g/cm^3
+
+    # calculate the total charge in the shower
+    Qmax = 0.2 * 0.62 * ((Ecr / 1GeV) |> NoUnits) * (1.602176634e-19C)
+
+    # and return a  function that evaluates the shower profile at a given distance
+    return Q(z) = Qmax*( ((z .- (X0/ρ)) ./ ((Xmax/ρ) - (X0/ρ))).^(((Xmax/ρ) - (X0/ρ))/(λ/ρ)) ) .* exp.(((Xmax/ρ) .- z) ./ (λ/ρ))
+
+end
