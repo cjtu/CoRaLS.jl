@@ -45,8 +45,8 @@ function create_antenna(fname, skyfrac;
     Tant = sum(Tbeam, dims=1)
 
     # construct the system temperature
-    # Tsys = Tlna .+ Γ*(Tsky.*skyfrac .+ Tmoon*moonfrac)
-    Tsys = Tlna .+ Γ*Tant
+    Tsys = Tlna .+ Γ*(Tsky.*skyfrac .+ Tmoon*moonfrac)
+    #Tsys = Tlna .+ Γ*Tant
 
     # the current LPDA design is nominally a 120 ohm design
     # but the antenna factors are referenced to 50 ohm so

@@ -8,10 +8,11 @@ using ProgressMeter
 using PyPlot
 using LaTeXStrings
 using DelimitedFiles
-using Unitful: km, sr, EeV, MHz, m
+using Unitful: km, sr, EeV, MHz, m, μV, cm
 
 # the number of trials that we use for each run
-ntrials = 150_000
+ntrials = 100_000
+#ntrials = 1_000
 
 # and the number of bins in energy for each run
 nbins = 20
@@ -71,11 +72,10 @@ function acceptance_test()
     fig, ax = plt.subplots(1, 2, sharey=true, figsize=(6, 3))
 
     # create another plot for the differential number number of events
-    fig_ev, ax_ev = plt.subplots(1, 2, figsize=(6, 3))
-
+        
     for i = 1:length(altitudes)
         # calculate with a constant refractive index
-        energies, dAΩ, _, rAΩ, _ = acceptance(ntrials, nbins;
+        A = acceptance(ntrials, nbins;
                                               altitude=altitudes[i], ice_depth=6.0m,
                                               min_energy=1.0EeV,
                                               ν_max=1000MHz,
@@ -84,11 +84,11 @@ function acceptance_test()
                                               save_events=false)
 
         # plot the direct simulations
-        ax[1].plot(18.0 .+ log10.(0.5*(energies[1:end-1] + energies[2:end]) / 1.0EeV), dAΩ / 1km^2 / 1sr,
+        ax[1].plot(18.0 .+ log10.(0.5*(A.energies[1:end-1] + A.energies[2:end]) / 1.0EeV), A.dAΩ / 1km^2 / 1sr,
                    c=direct_cmap[i+1, :], ls="solid", label="$(altitudes[i])")
 
         # plot the reflected simulations
-        ax[2].plot(18.0 .+ log10.(0.5*(energies[1:end-1] + energies[2:end]) / 1.0EeV), rAΩ / 1km^2 / 1sr,
+        ax[2].plot(18.0 .+ log10.(0.5*(A.energies[1:end-1] + A.energies[2:end]) / 1.0EeV), A.rAΩ / 1km^2 / 1sr,
                    c=refl_cmap[i+1, :], ls="solid", label="$(altitudes[i])")
 
 
@@ -96,8 +96,8 @@ function acceptance_test()
         Apsr = psr_fraction(altitudes[i])
 
         # get the differential number of direct and reflected events
-        devents = sum( differential_spectrum(energies, dAΩ, 2yr) )
-        revents = sum( differential_spectrum(energies, Apsr*rAΩ, 2yr) )
+        devents = sum( differential_spectrum(A.energies, A.dAΩ, 2yr) )
+        revents = sum( differential_spectrum(A.energies, Apsr*A.rAΩ, 2yr) )
 
 
     end
@@ -107,10 +107,6 @@ function acceptance_test()
               xlim=[18.5, 20.5], yscale="log", title="Direct")
     ax[2].set(xlabel=L"Energy [$\log_{10}$(eV)]", #ylabel=L"Acceptance [km$^2$ sr]",
               xlim=[18.5, 20.5], yscale="log", title="Reflected")
-    ax_ev[1].set(xlabel=L"Energy [$\log_{10}$(eV)]", ylabel=L"Acceptance [km$^2$ sr]",
-              xlim=[18.5, 20.5], yscale="log", title="Direct")
-    ax_ev[2].set(xlabel=L"Energy [$\log_{10}$(eV)]", #ylabel=L"Acceptance [km$^2$ sr]",
-           xlim=[18.5, 20.5], yscale="log", title="Reflected")
 
     for a in ax
         a.set_axisbelow(true)
@@ -132,7 +128,7 @@ function compare_against_jpl_test()
     JPLr30 = readdlm("docs/data/JPL_reflected_30km.csv", ',', Float64)
 
     # calculate the best fit to the JPL simulations
-    energies, dAΩ, _, rAΩ, _ = acceptance(ntrials, nbins;
+    A = acceptance(ntrials, nbins;
                                           altitude=30.0km, ice_depth=10.0m,
                                           geometrymodel=ScalarGeometry(),
                                           indexmodel=SurfaceDeepIndex(),
@@ -140,6 +136,9 @@ function compare_against_jpl_test()
                                           densitymodel=ConstantDensity(),
                                           slope=GaussianSlope(7.6),
                                           trigger=gaussian_trigger())
+    energies = A.energies
+    dAΩ = A.dAΩ
+    rAΩ = A.rAΩ
 
     # and now create the plot
     fig, ax = plt.subplots(figsize=(4, 4))
@@ -178,16 +177,23 @@ function compare_refractive_index_test()
     # and for a two-part refractive index
 
     # calculate with a constant refractive index
-    energies, dAΩconst, _, rAΩconst, _ = acceptance(ntrials, nbins;
+    Aconst = acceptance(ntrials, nbins;
                                                     indexmodel=ConstantIndex())
+    dAΩconst = Aconst.dAΩ
+    rAΩconst = Aconst.rAΩ
 
     # calculate with a deep+surface refractive index
-    energies, dAΩdeep, _, rAΩdeep, _ = acceptance(ntrials, nbins;
+    Adeep = acceptance(ntrials, nbins;
                                                   indexmodel=SurfaceDeepIndex())
+    dAΩdeep = Adeep.dAΩ
+    rAΩdeep = Adeep.rAΩ
 
     # calculate with a deep+surface refractive index
-    energies, dAΩexp, _, rAΩexp, _ = acceptance(ntrials, nbins;
-                                                  indexmodel=ExponentialIndex())
+    Aexp = acceptance(ntrials, nbins;
+                                                  indexmodel=StrangwayIndex())
+    dAΩexp = Aexp.dAΩ
+    rAΩexp = Aexp.rAΩ
+    energies = Aexp.energies
 
     # create our plot
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -238,8 +244,11 @@ function compare_surface_divergence_test()
            title="Surface Divergence Models", yscale="log")
 
     # calculate with far-field
-    energies, dAΩfar, _, rAΩfar, _ = acceptance(ntrials, nbins;
+    Afar = acceptance(ntrials, nbins;
                                                 divergencemodel=FarFieldDivergence())
+    dAΩfar = Afar.dAΩ
+    rAΩfar = Afar.rAΩ
+    energies = Afar.energies
 
     ax.plot(18.0 .+ log10.(0.5*(energies[1:end-1] + energies[2:end]) / 1.0EeV), dAΩfar / 1km^2 / 1sr,
             c="lightskyblue", ls="dashed", label="Direct: FORTE")
@@ -247,8 +256,11 @@ function compare_surface_divergence_test()
             c="crimson", ls="dashed", label="Reflected: FORTE")
 
     # calculate with mixed-field
-    energies, dAΩmixed, _, rAΩmixed, _ = acceptance(ntrials, nbins;
+    Amixed = acceptance(ntrials, nbins;
                                                     divergencemodel=MixedFieldDivergence())
+    dAΩmixed = Amixed.dAΩ
+    rAΩmixed = Amixed.rAΩ
+    energies = Amixed.energies
 
     ax.plot(18.0 .+ log10.(0.5*(energies[1:end-1] + energies[2:end]) / 1.0EeV), dAΩmixed / 1km^2 / 1sr,
             c="lightskyblue", ls="solid", label=L"Direct: $\sqrt{n}$ FORTE")
@@ -256,8 +268,11 @@ function compare_surface_divergence_test()
             c="crimson", ls="solid", label=L"Reflected: $\sqrt{n}$ FORTE")
 
     # calculate with near-field
-    energies, dAΩnear, _, rAΩnear, _ = acceptance(ntrials, nbins;
+    Anear = acceptance(ntrials, nbins;
                                                   divergencemodel=NearFieldDivergence())
+    dAΩnear = Anear.dAΩ
+    rAΩnear = Anear.rAΩ
+    energies = Anear.energies
 
     ax.plot(18.0 .+ log10.(0.5*(energies[1:end-1] + energies[2:end]) / 1.0EeV), dAΩnear / 1km^2 / 1sr,
             c="lightskyblue", ls="dotted", label=L"Direct: $n$ FORTE")
@@ -357,11 +372,12 @@ Compare the event rate as a function of surface roughness.
 function compare_surface_roughness()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 100_000
+    #ntrials = 100_000
+    ntrials = 1_000
     nbins = 15
 
     # the roughness values that we calculate for
-    Σ = 0.0cm:0.5cm:7.0cm
+    Σ = 0.0:0.5:7.0
 
     # the array where we store the number of events
     events = zeros(length(Σ))
@@ -373,12 +389,15 @@ function compare_surface_roughness()
     for i = 1:length(Σ)
 
         # calculate the acceptance at these energies
-        energies, dAΩ, _, rAΩ, _ = acceptance(ntrials, nbins;
+        A = acceptance(ntrials, nbins;
                                               ν_max=1000MHz,
                                               min_energy=1.0EeV,
                                               altitude=20.0km,
                                               trigger=gaussian_trigger(sqrt(1000 / 300.) * 0.5*67μV/m),
                                               roughnessmodel=GaussianRoughness(Σ[i]))
+        dAΩ = A.dAΩ
+        rAΩ = A.rAΩ
+        energies = A.energies
 
         # and calculate the total number of events
         events[i] = sum( differential_spectrum(energies, Apsr*rAΩ, 2yr) )
@@ -392,13 +411,13 @@ function compare_surface_roughness()
     colors = plt.cm.get_cmap("Blues_r")(range(0, 1, length=5))
 
     # plot the curve
-    ax.plot(Σ ./ cm, events, color=colors[2, :], ls="solid")
-    ax.scatter(Σ ./ cm, events, color=colors[2, :], s=1.8)
+    ax.plot(Σ , events, color=colors[2, :], ls="solid")
+    ax.scatter(Σ , events, color=colors[2, :], s=1.8)
 
     # add some labels
-    ax.set(xlabel=L"Ice RMS, $\sigma$ (cm)",
+    ax.set(xlabel=L"Surface RMS, $\sigma$",
             ylabel="Number of Events / 2yr",
-            title="Ice Roughness (20km, BW: 1000 MHz)")
+            title="Surface Roughness (20km, BW: 1000 MHz)")
 
     # add our grid and legend
     ax.set_axisbelow(true)
@@ -415,7 +434,8 @@ Compare the event rate as a function of trigger threshold.
 function compare_thresholds()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 60_000
+    #ntrials = 60_000
+    ntrials = 1_000
     nbins = 20
 
     # the threshold for each simulation
@@ -431,13 +451,16 @@ function compare_thresholds()
     for i = 1:length(thresholds)
 
         # calculate the acceptance at these energies
-        energies, dAΩ, _, rAΩ, _ = acceptance(ntrials, nbins;
+        A = acceptance(ntrials, nbins;
                                               min_energy=0.1EeV,
                                               altitude=20.0km,
                                               ν_max=1000MHz,
                                               dν = 30MHz,
                                               trigger=gaussian_trigger(thresholds[i]),
                                               save_events=false)
+        dAΩ = A.dAΩ
+        rAΩ = A.rAΩ
+        energies = A.energies
 
         # and calculate the total number of events
         events[i] = sum( differential_spectrum(energies, Apsr*rAΩ, 2yr) )
@@ -476,7 +499,8 @@ Compare the event rate as a function of ice refractive index
 function compare_ice_depth()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 180_000 # 300_000
+    #ntrials = 180_000 # 300_000
+    ntrials = 1_000 # 300_000
     nbins = 10 # 16
 
     # scan done on Oct. 8th
@@ -587,7 +611,8 @@ Compare the event rate as a function of ice refractive index
 function compare_ice_purity()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 300_000
+    #ntrials = 300_000
+    ntrials = 1_000
     nbins = 16
 
     # the ice-depth for each simulation
@@ -659,7 +684,8 @@ Compare the event rate as a function of beam pointing.
 function compare_beam_center()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 250_000
+    #ntrials = 250_000
+    ntrials = 1_000
     nbins = 20
 
     # the number of antennas on the SC
@@ -737,7 +763,8 @@ Compare the event rate as a function of beam pointing.
 function compare_bandwidth()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 60_000
+    #ntrials = 60_000
+    ntrials = 1_000
     nbins = 15
 
     # the minimum and maximum frequencies
@@ -803,7 +830,8 @@ Compare the event rate as a function of beam threshold and width
 function scan_width_threshold()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 90_000
+    #ntrials = 90_000
+    ntrials = 1_000
     nbins = 12
 
     # the beamwidth for each simulation
@@ -868,7 +896,8 @@ Scan through payload altitude and tilt angle.
 function scan_altitude_tilt()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 800_000
+    #ntrials = 800_000
+    ntrials = 1_000
     nbins = 18
 
     # the range of altitudes
@@ -947,7 +976,8 @@ Compare the event rate as a function of orbit altitude.
 function compare_altitude()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 350_000
+    #ntrials = 350_000
+    ntrials = 1_000
     nbins = 14
 
     # the altitudes that we calculate for
@@ -1068,7 +1098,8 @@ end
 function compare_ice_age()
 
     # we use a different set of trials and bins here to make it faster
-    ntrials = 400_000
+    #ntrials = 400_000
+    ntrials = 1_000
     nbins = 26
 
     # the ice depths that we plot
