@@ -977,7 +977,7 @@ function compare_altitude()
 
     # we use a different set of trials and bins here to make it faster
     #ntrials = 350_000
-    ntrials = 1_000
+    ntrials = 10_000
     nbins = 14
 
     # the altitudes that we calculate for

@@ -255,9 +255,6 @@ function compute_direct(::ScalarGeometry,
     # the normalized view vector
     view = obs / norm(obs)
 
-    # compute the actual angle at the true surface for use in the fresnel coeefficients
-    θ_i_true = acos(surface_normal ⋅ view)
-
     # the exit angle at the surface to hit the space-craft
     # this is the "refracted" angle
     θ_r = acos( view ⋅ surface_normal )
@@ -304,22 +301,6 @@ function compute_direct(::ScalarGeometry,
     emit = cos(θ_emit)*normal + sin(θ_emit)*proj
     emit /= norm(emit) # make sure it is normalized
 
-    # we now need to "shift" the location of Xmax so that it has the
-    # correct distance to the "origin" which is our approximate
-    # refraction point at the surface.
-
-    # calculate the approximate location of Xmax in our system
-    # start at the surface - go "down" by `depth` and then "back"
-    # along `flat`
-    # source = origin - (depth*normal) - (x*proj)
-
-    # # # check that our shifted source is the right distance from the surface
-    # @assert isapprox(norm(origin - source), Drego, atol=1e-4m)
-
-    # # the emission vector is from `source` to the refraction point
-    # emit = origin - source
-    # emit /= norm(emit) # make sure it is normalized
-
     # calculate the off-axis angle - angle between emission and axis
     ψ = acos( emit ⋅ axis )
 
@@ -334,25 +315,6 @@ function compute_direct(::ScalarGeometry,
     # pol = (axis × emit) × emit
     pol = -emit × (emit × axis)
     pol /= norm(pol) # fixes some tiny rounding errors
-
-    # andres = axis - (axis ⋅ emit)*emit
-    # andres /= norm(andres)
-
-    # println("Original: $(pol)")
-    # println("Andres: $(andres)")
-
-    # pol = andres
-
-    # this vector defines "perpendicular" to the plane of incidence
-    # this is "slappy" or H-pol
-    # nperp = view × surface_normal
-    # nperp /= norm(nperp)
-
-    # # this vector defines "parallel" to the plane of incident i.e. "pokey"
-    # # again assuming that "origin" === "surface"
-    # npar = surface_normal
-    # npar = nperp × view
-    # npar /= norm(npar)
 
     # the vector incident at the surface
     incident = cos(θ_i)*normal + sin(θ_i)*proj
@@ -389,23 +351,6 @@ function compute_direct(::ScalarGeometry,
     # poltr = tperp*(pol ⋅ nperp)*nperp + tpar*(pol ⋅ npar)*npar
     poltr = tperp*(pol ⋅ niperp)*ntperp + tpar*(pol ⋅ nipar)*ntpar
 
-    # println("Poltr: $(poltr)")
-    # println("H-Fac, tr: $(norm(poltr[1:2]) / norm(poltr))")
-    # println("Normal Proj., tr: $(poltr ⋅ normal)")
-
-    # and construct the integrated electric field vector
-    # Ef = integrate(ν, E) * poltr
-
-    # Pproj = poltr - (poltr ⋅ view)*view
-
-    # println("Proj: $(poltr ⋅ view)")
-
-    # Haxis = -view × normal
-    # Haxis /= norm(Haxis)
-    # Vaxis = -Haxis × view
-    # Vaxis /= norm(Vaxis)
-
-    # θpol = atan(pol ⋅ Vaxis, Pproj ⋅ Haxis)
     θpol = atan(poltr ⋅ ntpar, poltr ⋅ ntperp)
 
     # calculate the zenith angle of the cosmic ray
@@ -479,9 +424,6 @@ function compute_reflected(::ScalarGeometry,
     # with the refracted wave leaving the surface at θ_r
     θ_i = asin( sin(θ_r) / Nsurf)
 
-    # and calculate the true refracted angle
-    θ_i_true = asin( sin(θ_r_true) / Nsurf )
-
     # but the distance is strongly driven by the angle below the surface
     θ_reg = asin( Nsurf * sin(θ_i) / NXmax)
 
@@ -500,10 +442,6 @@ function compute_reflected(::ScalarGeometry,
     # and the total distance in vacuum
     Dvacuum = norm(obs)
 
-    # we now need to "shift" the location of Xmax so that it has the
-    # correct distance to the "origin" which is our approximate
-    # refraction point at the surface.
-
     # project the viw  onto the local horizontal - this is used to
     # shift the location of Xmax back along the local horizontal
     # this defines the horizontal unit-vector in our local coordinate system
@@ -515,16 +453,6 @@ function compute_reflected(::ScalarGeometry,
     # along `flat`
     source = origin - (2.0*ice_depth - depth)*normal - (x1 + x2)*proj
 
-    # check that our shifted source is the right distance from the surface
-    # @assert isapprox(norm(origin - source), Drego, atol=1e-4m)
-
-    # # the emission vector is from `source` to the refraction point
-    emit = origin - source
-    emit /= norm(emit) # make sure it is normalized
-
-    # emit = emit - 2.0(emit ⋅ normal)*normal
-    # emit /= norm(emit) # make sure it is normalized
-
     # calculate the optical invariant for this event
     invariant = Nsurf * Rmoon * sin(θ_i)
 
@@ -535,13 +463,6 @@ function compute_reflected(::ScalarGeometry,
     # calculate the emission vector from our two component vectors
     emit = -cos(θ_emit)*normal + sin(θ_emit)*proj
     emit /= norm(emit) # make sure it is normalized
-
-    # calculate the emission vector given the emission angle
-    # note the minus sign compared to the direct case. For the reflected
-    # case, the ray leaves from "below" and after reflection, will then
-    # have the same emission zenith angle as the direct ray
-    # emit = -cos(θ_emit)*normal + sin(θ_emit)*proj
-    # emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
     ψ = acos( emit ⋅ axis )
@@ -557,15 +478,6 @@ function compute_reflected(::ScalarGeometry,
     pol = -emit × (emit × axis)
     pol /= norm(pol) # fixes some tiny rounding errors
 
-    # # this vector defines "perpendicular" to the plane of incidence
-    # # this is "slappy" or H-pol
-    # nperp = view × surface_normal
-    # nperp /= norm(nperp)
-
-    # # this vector defines "parallel" to the plane of incident i.e. "pokey"
-    # # again assuming that "origin" === "surface"
-    # npar = surface_normal
-
     # for a radially stratified atmosphere, n*r*sin(zenith) is conserved
     # at every step along the ray's path as it refracts through the changing
     # regolith density. We use this to calculate the angle at the ice layer
@@ -578,14 +490,15 @@ function compute_reflected(::ScalarGeometry,
     incident /= norm(incident) # make sure it is normalized
 
     # incident at the surface
+    # TODO: which of these nipar and niperp is correct?  same for direct or no?
+    #niperp = emit × normal
     niperp = incident × normal
-    niperp = emit × normal
     niperp /= norm(niperp)
 
     # this vector defines "parallel" to the plane of incident i.e. "pokey"
     # again assuming that "origin" === "surface"
+    #nipar = niperp × emit
     nipar = niperp × incident
-    nipar = niperp × emit
     nipar /= norm(nipar)
 
     # the perp. for the refracted emission
