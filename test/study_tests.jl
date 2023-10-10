@@ -984,8 +984,8 @@ function compare_altitude()
     altitudes = [20.0, 30.0, 40.0, 60.0, 80.0]km
 
     # the number of total antennas we use in each case
-    Nants = [8, 12, 16]
-    Ntrigs = [3, 5, 6]
+    Nants = [3, 8, 12, 16]
+    Ntrigs = [1, 3, 5, 6]
 
     # use a colormap for the colors
     colors = plt.cm.get_cmap("Blues_r")(range(0, 1, length=length(Nants)+1))
