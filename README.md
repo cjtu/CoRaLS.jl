@@ -29,6 +29,15 @@ In the Julia REPL, enter package mode by pressing `]` (note the `>pkg`). Buildin
 pkg> build PyCall
 ```
 
+Alternatively, julia can install all python packages and build PyCall with the following
+
+```julia
+julia> ENV["PYTHON"]=""
+julia> import Pkg
+julia> Pkg.add("PyCall")
+julia> Pkg.build("PyCall")
+```
+
 Then activate the CoRaLS environment and instantiate it to install the required packages and compile CoRaLS.jl:
 
 ```julia
@@ -49,6 +58,21 @@ Or equivalently:
 julia> import CoRaLS
 julia> CoRaLS.plot_acceptance(CoRaLS.acceptance(10000, 20))
 ```
+Exit julia with
+```julia
+julia> exit()
+```
+
+After the first build of PyCall and importing of CoRaLS code, subsequent runs will be faster and proceed as:
+```julia
+`]`
+pkg> activate .
+pkg> instantiate
+```
+```julia
+julia> using CoRaLS
+```
+And run your functions/scripts.
 
 ## Description of model and included files
 
