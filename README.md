@@ -6,7 +6,7 @@
 
 ## Installation
 
-Install Julia v1.8. Since this is an older release, either go to [old releases](https://julialang.org/downloads/oldreleases/) and [add Julia to your dydtem path](https://julialang.org/downloads/platform/#optional_add_julia_to_path) or use an install helper like [juliaup](https://github.com/JuliaLang/juliaup) or [jill](https://github.com/abelsiqueira/jill).
+Install Julia v1.8. Since this is an older release, either go to [old releases](https://julialang.org/downloads/oldreleases/) and [add Julia to your system path](https://julialang.org/downloads/platform/#optional_add_julia_to_path) or use an install helper like [juliaup](https://github.com/JuliaLang/juliaup) or [jill](https://github.com/abelsiqueira/jill).
 
 Also ensure python and the `matplotlib` package are installed with [Anaconda](https://www.anaconda.com/)/[Miniconda](https://conda.io/miniconda.html)/[Miniforge](https://github.com/conda-forge/miniforge) (e.g. via `conda install matplotlib`).
 
@@ -23,19 +23,13 @@ cd CoRaLS.jl
 julia
 ```
 
-In the Julia REPL, enter package mode by pressing `]` (note the `>pkg`). Building the PyCall package will give Julia access to the Python installation:
-
-```julia
-pkg> build PyCall
-```
-
-Alternatively, julia can install all python packages and build PyCall with the following
+In the Julia REPL, enter package mode by pressing `]` (note `julia>` changes to `>pkg`). Adding and building the PyCall package will give Julia access to the Python installation specified at the path supplied in quotes to `ENV["PYTHON"]` (leave blank `""` to use system default python):
 
 ```julia
 julia> ENV["PYTHON"]=""
-julia> import Pkg
-julia> Pkg.add("PyCall")
-julia> Pkg.build("PyCall")
+julia> ]
+pkg> add PyCall
+pkg> build PyCall
 ```
 
 Then activate the CoRaLS environment and instantiate it to install the required packages and compile CoRaLS.jl:
@@ -58,20 +52,29 @@ Or equivalently:
 julia> import CoRaLS
 julia> CoRaLS.plot_acceptance(CoRaLS.acceptance(10000, 20))
 ```
-Exit julia with
+
+Exit julia with `ctrl+D` or `exit()`:
+
 ```julia
 julia> exit()
 ```
 
+## Using the CoRaLS environment
+
 After the first build of PyCall and importing of CoRaLS code, subsequent runs will be faster and proceed as:
+
 ```julia
 `]`
 pkg> activate .
 pkg> instantiate
 ```
+
+Backspace to exit `pkg>` mode, then:
+
 ```julia
 julia> using CoRaLS
 ```
+
 And run your functions/scripts.
 
 ## Description of model and included files
