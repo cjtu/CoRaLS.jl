@@ -1,3 +1,22 @@
+"""
+    acceptance.jl
+
+This file is part of the `CoRaLS` module and contains functions and structures for calculating the acceptance of the system for sub-surface Ultra-High-Energy Cosmic Ray (UHECR) reflections from ice. It also includes utilities for analyzing trials and computing differential spectra.
+
+## Main Components
+
+- `struct Acceptance`: A structure to hold results of acceptance calculations, including trials, altitude, energies, and different acceptance types (direct and reflected).
+
+- `function acceptance(...)`: Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involves simulations of cosmic ray interactions, triggering conditions, and aggregating results across multiple trials and energy bins.
+
+- `function trials_passed(...)`: Computes the number of successful trials for both direct and reflected acceptances.
+
+- `function differential_spectrum(...)`: Calculates the differential spectrum of detected UHECR events based on acceptance calculations and observation time.
+
+## Usage
+These functionalities are central to simulations and analyses involving cosmic ray detection and are used in conjunction with other parts of the `CoRaLS` module to provide comprehensive insights into UHECR interactions and detection probabilities.
+"""
+
 using ProgressMeter
 
 """
@@ -20,11 +39,11 @@ end
 Calculate the acceptance of CoRaLS to sub-surface UHECR reflections from ice.
 """
 function acceptance(ntrials, nbins; min_energy=0.1EeV,
-                    max_energy=600.0EeV,
-                    altitude=20.0km,
-                    trigger=magnitude_trigger(100μV/m),
-                    save_events=true,
-                    kwargs...)
+    max_energy=600.0EeV,
+    altitude=20.0km,
+    trigger=magnitude_trigger(100μV / m),
+    save_events=true,
+    kwargs...)
 
     # create a StructArray for out Detection type
     # this is a vector with the length of the number of threads
@@ -42,7 +61,7 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
 
     # we define the lunar poles as everything within 10 degrees
     θpole = deg2rad(10.0)
-    
+
     # the distance to the horizon from the SC's altitude
     θmax = -horizon_angle(altitude)
 
@@ -57,15 +76,15 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
 
     # fold in the fraction of the polar caps that have PSRs
     # assuming 30_000 km^2 of total PSR regions
-    AΩ *= 30_000km^2  / spherical_cap_area(θpole, Rmoon)
+    AΩ *= 30_000km^2 / spherical_cap_area(θpole, Rmoon)
 
     # and account for the fraction of a single hemisphere of the CRs
     # orbit that is visible from the poles, since we only simulate these
     # "visible" SC angles
-    AΩ *= (θpole + θmax) / (π/2.0)
+    AΩ *= (θpole + θmax) / (π / 2.0)
 
     # construct the bins we sample from in log-space
-    energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins+1))EeV
+    energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
 
     # construct arrays containing the effective area for direct
     # and reflected events at each energy
@@ -80,7 +99,7 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
         rpassed = Threads.Atomic{Int}(0.0)
 
         # sample the Auger spectrum for UHECR energies within this bin
-        Ecr = [sample_auger(energies[bin], energies[bin+1]) for i=1:ntrials]
+        Ecr = [sample_auger(energies[bin], energies[bin+1]) for i = 1:ntrials]
 
         # loop over the number of trials in this bin
         Threads.@threads for i = 1:ntrials

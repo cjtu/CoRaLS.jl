@@ -2,16 +2,26 @@
 """
     raytrace(θ_i, Xmax, ice_depth, indexmodel)
 
-Raytrace a ray from the surface with zenith angle (in the regolith)
-of `θ_i` and calculate the zenith angle at the depth of `Xmax` and
-at `ice_depth` using `indexmodel`.
+    Raytrace a ray from the surface with zenith angle (in the regolith)
+    of `θ_i` and calculate the zenith angle at the depth of `Xmax` and
+    at `ice_depth` using `indexmodel`.
 
-Returns the total path length of the ray, the zenith angle at Xmax,
-and the zenith angle at the ice layer. This assumes a perfectly
-specular reflection (i.e. θ_i = θ_r) at the ice layer.
+# Arguments
+- `θ_i`: Initial zenith angle of the ray at the lunar surface (in the regolith).
+- `Xmax`: Depth at which the cosmic ray reaches its maximum development (Xmax).
+- `ice_depth`: Depth of the ice layer beneath the lunar surface.
+- `indexmodel`: Model of the regolith index used for ray tracing.
+
+# Returns
+- `Drego`: Total path length of the ray within the regolith.
+- `θXmax`: Zenith angle of the ray at the Xmax depth.
+- `θice`: Zenith angle of the ray at the ice layer depth.
+
+# Description
+This function performs ray tracing for a cosmic ray incident on the lunar surface, considering refraction effects as the ray passes through the regolith and approaches the ice layer. The function assumes a perfectly specular reflection at the ice layer, meaning the incident and reflection angles are equal. It computes the path length and zenith angles at crucial depths (Xmax and ice layer) and returns these values along with the total path length within the regolith.
 """
 function raytrace(θ_i, Xmax, ice_depth,
-                  indexmodel::RegolithIndex)
+    indexmodel::RegolithIndex)
 
     # make sure Xmax and ice_depth are both measured "positive" below the surface
     @toggled_assert Xmax > 0.0cm
@@ -71,7 +81,7 @@ function raytrace(θ_i, Xmax, ice_depth,
         # n * r * sin(θ) === n' * r' + sin(θ') for all points along the path
         #
         # use the optical invariant to calculate the new zenith angle
-        θ = asin((n_old * (Rmoon - depth) * sin(θ)) / ( (Rmoon - depth - dR)*n_new ))
+        θ = asin((n_old * (Rmoon - depth) * sin(θ)) / ((Rmoon - depth - dR) * n_new))
 
         # update all the variables
         depth += dR
