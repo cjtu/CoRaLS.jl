@@ -4,13 +4,15 @@ Welcome to the documentation for CoRaLS (Cosmic Ray Localization System), an ast
 
 ## Contents
 
-- [Introduction](#introduction)
-- [Installation](#installation)
-- [Getting Started](#getting-started)
-- [Tutorials](#tutorials)
-- [API Reference](#api-reference)
-- [Guides for Physicists New to Julia](#guides-for-physicists-new-to-julia)
-- [Additional Details](#additional-details)
+- [CoRaLS Documentation](#corals-documentation)
+  - [Contents](#contents)
+    - [Introduction](#introduction)
+    - [Installation](#installation)
+    - [Getting Started](#getting-started)
+    - [Tutorials](#tutorials)
+    - [API Reference](#api-reference)
+    - [Guides for Physicists New to Julia](#guides-for-physicists-new-to-julia)
+    - [Additional Details](#additional-details)
 
 ### Introduction
 
@@ -42,4 +44,3 @@ A resource for physicists familiar with Python but new to Julia, highlighting th
 - **FAQs**: Frequently asked questions.
 - **Acknowledgments and References**: Credits and scientific references.
 - **Contact and Support**: Information on how to get help and contact the development team.
-

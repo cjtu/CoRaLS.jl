@@ -1,4 +1,3 @@
-#### 3. simulate_jl.md
 # simulate.jl: The Main Cosmic Ray Simulation Script
 
 `simulate.jl` implements various functions and types for simulating cosmic ray events and their corresponding radio frequency (RF) signals.
@@ -18,4 +17,3 @@ CoRaLS.GeometryImplementation
 CoRaLS.EventGeometry
 CoRaLS.TrialFailed
 ```
-

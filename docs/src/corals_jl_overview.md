@@ -3,6 +3,7 @@
 The `CoRaLS` (Cosmic Ray Lunar Sounder) module is designed for analyzing and simulating cosmic ray interactions, particularly in lunar contexts. It provides a comprehensive toolkit for modeling cosmic ray paths, energy spectra, and their interactions with lunar regolith and other materials.
 
 ## Included Files and Their Purpose
+
 - `simulate.jl`: Contains simulation tools and models for cosmic ray interactions, detector responses, and other related phenomena.
 - `detector.jl`: Focuses on models and functions related to cosmic ray detectors, including their design, response, and data analysis.
 - `acceptance.jl`: Provides tools for calculating the acceptance of cosmic ray detectors, an essential factor in understanding and comparing detector efficiencies.
@@ -21,4 +22,3 @@ The `CoRaLS` (Cosmic Ray Lunar Sounder) module is designed for analyzing and sim
 - `raytrace.jl`: Implements ray tracing algorithms, an important tool in visualizing and analyzing the paths of cosmic rays and other radiation.
 - `surface.jl`: Includes models and functions related to surface properties, which might be critical in understanding detector-environment interactions.
 - `plots.jl`: Offers a suite of plotting and visualization tools tailored for representing data and results from cosmic ray studies and related simulations.
-

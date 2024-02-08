@@ -22,7 +22,6 @@ makedocs(
 )
 
 deploydocs(
-    repo="github.com/yourusername/CoRaLS.jl.git",
-    branch="jr-docstrings",
+    repo="github.com/cjtu/CoRaLS.jl.git",
     push_preview=true,
 )
