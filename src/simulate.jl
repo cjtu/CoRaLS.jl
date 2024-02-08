@@ -5,16 +5,43 @@ using LinearAlgebra
 using NumericalIntegration
 using Unitful
 using Unitful: m, km, μV, sr
+"""
+This script implements various functions and types for simulating cosmic ray events and their corresponding radio frequency (RF) signals. Below is a summary of the main components of the script:
+
+1. Enums:
+   - `TrialFailed`: Enumerates possible reasons why a cosmic ray trial failed.
+   - `EventGeometry`: Enumerates possible event geometries (direct or reflected).
+
+2. Abstract Types:
+   - `GeometryImplementation`: Abstract type for event simulation implementation.
+   - `AbstractSignal`: Abstract type for simulated signals, both direct and reflected.
+
+3. Concrete Types:
+   - `VectorGeometry`: 3D vector geometry implementation without approximations.
+   - `ScalarGeometry`: Approximate scalar geometry based on Andres' MC.
+
+4. Signal Structs:
+   - `Direct`: Information stored for a direct RF detection.
+   - `Reflected`: Information stored for a reflected RF detection.
+
+5. Functions:
+   - `throw_cosmicray`: Simulates a single cosmic ray trial with a given energy, calculating the field at the payload for direct and reflected emissions.
+   - `compute_direct`: Computes the 'direct' RF solution using the scalar geometry.
+   - `compute_reflected`: Computes the 'reflected' RF solution using the scalar geometry.
+
+6. Miscellaneous:
+   - Overloaded `show` function for custom printing of `Direct` and `Reflected` structs.
+"""
 
 """
 An enum for possible reasons why the a cosmic ray trial failed.
 """
-@enum TrialFailed Upgoing=0 TIR=1 XmaxAfterIce=2 NoXmax=3 NotPSR=4 NotVisible=5 NotPolar=6
+@enum TrialFailed Upgoing = 0 TIR = 1 XmaxAfterIce = 2 NoXmax = 3 NotPSR = 4 NotVisible = 5 NotPolar = 6
 
 """
 An enum for possible event geometries (i.e. direct or reflected)
 """
-@enum EventGeometry DirectEvent=0 ReflectedEvent=1
+@enum EventGeometry DirectEvent = 0 ReflectedEvent = 1
 
 """
 Abstract type for event simulation implementation.
@@ -51,7 +78,7 @@ mutable struct Direct <: AbstractSignal
     θ::Float64 # the Lunar-centric angle of the cosmic ray (deg)
     ϕ::Float64 # the Lunar-centric azimuthal angle (deg)
     θ_z::Float64 # the CR zenith angle (deg) at θ
-    pol::typeof(SA[0., 0., 0.]) # the magnitude & polarization vector at the payload
+    pol::typeof(SA[0.0, 0.0, 0.0]) # the magnitude & polarization vector at the payload
     ν_min::typeof(1.0MHz) # the minimum frequency of this e-field
     dν::typeof(1.0MHz) # the frequency bin spacing of this e-field
     ν_max::typeof(1.0MHz) # the maximum frequency of this e-field
@@ -77,12 +104,12 @@ mutable struct Reflected <: AbstractSignal
     θ::Float64 # the Lunar-centric angle of the cosmic ray (deg)
     ϕ::Float64 # the Lunar-centric azimuthal angle (deg)
     θ_z::Float64 # the zenith angle (deg) at θ
-    pol::typeof(SA[0., 0., 0.]) # the magnitude & polarization vector
+    pol::typeof(SA[0.0, 0.0, 0.0]) # the magnitude & polarization vector
     ν_min::typeof(1.0MHz) # the minimum frequency of this e-field
     dν::typeof(1.0MHz) # the frequency bin spacing of this e-field
     ν_max::typeof(1.0MHz) # the maximum frequency of this e-field
     Ef # the total electric field spectral density at the payload
-    polsub::typeof(SA[0., 0., 0.]) # the polarization vector from the subsurface
+    polsub::typeof(SA[0.0, 0.0, 0.0]) # the polarization vector from the subsurface
     θpol::Float64 # the polarization angle (deg) at the payload, 0 for H-Pol, 90 for V-Pol
     θpolsub::Float64 # the polarization angle (deg) at the payload, 0 for H-Pol, 90 for V-Pol
     θ_el::Float64 # the observed elevation angle below the payload (deg)
@@ -116,15 +143,15 @@ This calculates the field at the payload for the direct and reflected emission,
 (if they exist), and does not check fo a trigger condition.
 """
 function throw_cosmicray(Ecr;
-                         ice_depth=5m, altitude=20.0km,
-                         geometrymodel=ScalarGeometry(),
-                         indexmodel=StrangwayIndex(), fieldmodel=ARW(),
-                         divergencemodel=MixedFieldDivergence(),
-                         densitymodel=StrangwayDensity(),
-                         slopemodel=GaussianSlope(7.6),
-                         roughnessmodel=GaussianRoughness(2.0),
-                         iceroughness=GaussianIceRoughness(2.0cm),
-                         kwargs...)
+    ice_depth=5m, altitude=20.0km,
+    geometrymodel=ScalarGeometry(),
+    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    densitymodel=StrangwayDensity(),
+    slopemodel=GaussianSlope(7.6),
+    roughnessmodel=GaussianRoughness(2.0),
+    iceroughness=GaussianIceRoughness(2.0cm),
+    kwargs...)
 
     # get the maximum angle that we sample CR impact points from
     θmax = -horizon_angle(altitude)
@@ -168,7 +195,7 @@ function throw_cosmicray(Ecr;
 
     # and finally calculate the 3D position of the spacecraft
     # SC = spherical_to_cartesian(θsc, 0., Rmoon+altitude)
-    SC = spherical_to_cartesian(θsc, rand(Uniform(0, 2π)), Rmoon+altitude)
+    SC = spherical_to_cartesian(θsc, rand(Uniform(0, 2π)), Rmoon + altitude)
 
     # calculate the total central angle between the SC and the event
     Δσ = atan(norm(SC × surface), (SC ⋅ surface))
@@ -205,24 +232,24 @@ function throw_cosmicray(Ecr;
 
     # compute the solution for the "direct" RF
     direct = compute_direct(geometrymodel, Ecr, surface, direction, SC, Xmax;
-                            indexmodel=indexmodel,
-                            fieldmodel=fieldmodel,
-                            slopemodel=slopemodel,
-                            roughnessmodel=roughnessmodel,
-                            densitymodel=densitymodel,
-                            divergencemodel=divergencemodel,
-                            kwargs...)
+        indexmodel=indexmodel,
+        fieldmodel=fieldmodel,
+        slopemodel=slopemodel,
+        roughnessmodel=roughnessmodel,
+        densitymodel=densitymodel,
+        divergencemodel=divergencemodel,
+        kwargs...)
 
     # compute the solution for the "reflected" RF
     reflected = compute_reflected(geometrymodel, Ecr, surface, direction, SC, Xmax, ice_depth;
-                                  indexmodel=indexmodel,
-                                  fieldmodel=fieldmodel,
-                                  slopemodel=slopemodel,
-                                  roughnessmodel=roughnessmodel,
-                                  iceroughness=iceroughness,
-                                  densitymodel=densitymodel,
-                                  divergencemodel=divergencemodel,
-                                  kwargs...)
+        indexmodel=indexmodel,
+        fieldmodel=fieldmodel,
+        slopemodel=slopemodel,
+        roughnessmodel=roughnessmodel,
+        iceroughness=iceroughness,
+        densitymodel=densitymodel,
+        divergencemodel=divergencemodel,
+        kwargs...)
 
     return direct, reflected
 end
@@ -231,15 +258,15 @@ end
 Compute the 'direct' RF solution using the scalar geometry.
 """
 function compute_direct(::ScalarGeometry,
-                        Ecr, origin, axis, antenna, Xmax;
-                        indexmodel=SurfaceDeepIndex(),
-                        densitymodel=StrangwayDensity(),
-                        fieldmodel=ARW(),
-                        divergencemodel=MixedFieldDivergence(),
-                        slopemodel=NoSlope(),
-                        roughnessmodel=NoRoughness(),
-                        ν_min=150MHz, ν_max=600MHz,
-                        kwargs...)
+    Ecr, origin, axis, antenna, Xmax;
+    indexmodel=SurfaceDeepIndex(),
+    densitymodel=StrangwayDensity(),
+    fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    slopemodel=NoSlope(),
+    roughnessmodel=NoRoughness(),
+    ν_min=150MHz, ν_max=600MHz,
+    kwargs...)
 
     # println("Origin: $(origin)")
 
@@ -257,10 +284,10 @@ function compute_direct(::ScalarGeometry,
 
     # the exit angle at the surface to hit the space-craft
     # this is the "refracted" angle
-    θ_r = acos( view ⋅ surface_normal )
+    θ_r = acos(view ⋅ surface_normal)
 
     # since we have surface roughness, we can have TIR or shadowed geometries
-    θ_r > π/2.0 && return TIR
+    θ_r > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -271,23 +298,23 @@ function compute_direct(::ScalarGeometry,
 
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
-    θ_i = asin( sin(θ_r) / Nsurf)
+    θ_i = asin(sin(θ_r) / Nsurf)
 
     # but the distance is strongly driven by the angle below the surface
-    θ_reg = asin( Nsurf * sin(θ_i) / NXmax)
+    θ_reg = asin(Nsurf * sin(θ_i) / NXmax)
 
     # the horizontal distance from the exit point to Xmax
     x = depth * tan(θ_reg)
 
     # use this to calculate the total distance in the regolith
-    Drego = sqrt( x*x + depth*depth )
+    Drego = sqrt(x * x + depth * depth)
 
     # and the total distance in vacuum
     Dvacuum = norm(obs)
 
     # project this  onto the local horizontal - this is used to
     # shift the location of Xmax back along the local horizontal
-    proj = view - (view ⋅ normal)*normal
+    proj = view - (view ⋅ normal) * normal
     proj /= norm(proj) # make sure it is normalized
 
     # calculate the optical invariant for this event
@@ -295,21 +322,21 @@ function compute_direct(::ScalarGeometry,
 
     # and use this to calculate the zenith angle of the emission
     # vector at the location of Xmax
-    θ_emit = asin( invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
+    θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
     # calculate the emission vector from our two component vectors
-    emit = cos(θ_emit)*normal + sin(θ_emit)*proj
+    emit = cos(θ_emit) * normal + sin(θ_emit) * proj
     emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
-    ψ = acos( emit ⋅ axis )
+    ψ = acos(emit ⋅ axis)
 
     # calculate the electric field at the surface
     # we use the divergence formula below to account for the distance to the spacecraft
     ν, E = regolith_field(fieldmodel, Ecr, ψ, Drego, Dvacuum;
-                          n=NXmax,
-                          density=regolith_density(densitymodel, depth),
-                          ν_min=ν_min, ν_max=ν_max, kwargs...)
+        n=NXmax,
+        density=regolith_density(densitymodel, depth),
+        ν_min=ν_min, ν_max=ν_max, kwargs...)
 
     # calculate the incident polarization vector for the direct emission
     # pol = (axis × emit) × emit
@@ -317,7 +344,7 @@ function compute_direct(::ScalarGeometry,
     pol /= norm(pol) # fixes some tiny rounding errors
 
     # the vector incident at the surface
-    incident = cos(θ_i)*normal + sin(θ_i)*proj
+    incident = cos(θ_i) * normal + sin(θ_i) * proj
     incident /= norm(incident) # make sure it is normalized
 
     # incident at the surface
@@ -344,29 +371,29 @@ function compute_direct(::ScalarGeometry,
     # tpar = divergence_tpar(divergencemodel, θ_i, Nsurf, Drego, Dvacuum)
     # tperp = divergence_tperp(divergencemodel, θ_i, Nsurf, Drego, Dvacuum)
     tpar, tperp = surface_transmission(roughnessmodel, divergencemodel,
-                                       θ_i, Nsurf, Drego, Dvacuum)
+        θ_i, Nsurf, Drego, Dvacuum)
 
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector
     # poltr = tperp*(pol ⋅ nperp)*nperp + tpar*(pol ⋅ npar)*npar
-    poltr = tperp*(pol ⋅ niperp)*ntperp + tpar*(pol ⋅ nipar)*ntpar
+    poltr = tperp * (pol ⋅ niperp) * ntperp + tpar * (pol ⋅ nipar) * ntpar
 
     θpol = atan(poltr ⋅ ntpar, poltr ⋅ ntperp)
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos( normal ⋅ (-axis))
+    zenith = acos(normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin...)
 
     # calculate the below horizon angle at the payload
-    el = -(acos( -view ⋅ (antenna / norm(antenna)) ) - pi/2.)
+    el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
 
     # and construct and return the signal
     return Direct(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
-                  poltr, ν_min, 10MHz, ν_max, E .|> (μV/m/MHz), rad2deg(θpol), rad2deg(el), rad2deg(ψ),
-                  depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, false)
+        poltr, ν_min, 10MHz, ν_max, E .|> (μV / m / MHz), rad2deg(θpol), rad2deg(el), rad2deg(ψ),
+        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, false)
 
 end
 
@@ -375,19 +402,19 @@ end
 Compute the 'reflected' RF solution using the scalar solution.
 """
 function compute_reflected(::ScalarGeometry,
-                           Ecr, origin, axis, antenna, Xmax, ice_depth;
-                           Nice=1.305,
-                           Nbed=1.6, # 1.6 for regolith, 2.8 for bedrock
-                           ice_thickness=1.0m,
-                           indexmodel=SurfaceDeepIndex(),
-                           densitymodel=StrangwayDensity(),
-                           fieldmodel=ARW(),
-                           divergencemodel=MixedFieldDivergence(),
-                           slopemodel=NoSlope(),
-                           roughnessmodel=NoRoughness(),
-                           iceroughness=NoIceRoughness(),
-                           ν_min=150MHz, ν_max=600MHz,
-                           kwargs...)
+    Ecr, origin, axis, antenna, Xmax, ice_depth;
+    Nice=1.305,
+    Nbed=1.6, # 1.6 for regolith, 2.8 for bedrock
+    ice_thickness=1.0m,
+    indexmodel=SurfaceDeepIndex(),
+    densitymodel=StrangwayDensity(),
+    fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    slopemodel=NoSlope(),
+    roughnessmodel=NoRoughness(),
+    iceroughness=NoIceRoughness(),
+    ν_min=150MHz, ν_max=600MHz,
+    kwargs...)
 
     # calculate the normalized vector to the point on the surface
     normal = origin / norm(origin)
@@ -403,14 +430,14 @@ function compute_reflected(::ScalarGeometry,
 
     # the exit angle at the surface to hit the space-craft
     # this is the "refracted" angle
-    θ_r = acos( view ⋅ normal )
+    θ_r = acos(view ⋅ normal)
 
     # but that's just geometry - we need the actual surface refraction
     # angle for checking for TIR
-    θ_r_true = acos( view ⋅ surface_normal )
+    θ_r_true = acos(view ⋅ surface_normal)
 
     # check that with a random slope, we aren't beyond TIR
-    θ_r_true > π/2.0 && return TIR
+    θ_r_true > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -422,22 +449,22 @@ function compute_reflected(::ScalarGeometry,
 
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
-    θ_i = asin( sin(θ_r) / Nsurf)
+    θ_i = asin(sin(θ_r) / Nsurf)
 
     # but the distance is strongly driven by the angle below the surface
-    θ_reg = asin( Nsurf * sin(θ_i) / NXmax)
+    θ_reg = asin(Nsurf * sin(θ_i) / NXmax)
 
     # we have to split the calculation of the distance into two parts
     # pre- and post- reflection
-    x1 = (ice_depth - depth)*tan(θ_reg) # pre-reflected
-    x2 = ice_depth*tan(θ_reg) # post-reflection
+    x1 = (ice_depth - depth) * tan(θ_reg) # pre-reflected
+    x2 = ice_depth * tan(θ_reg) # post-reflection
 
     # check thate we aren't violating TIR
-    (x1 + x2) > (2.0*ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
+    (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
 
     # the total distance is calculated over each step
-    Drego = sqrt(x1*x1 + (ice_depth - depth)*(ice_depth - depth)) +
-        sqrt(x2*x2 + ice_depth*ice_depth)
+    Drego = sqrt(x1 * x1 + (ice_depth - depth) * (ice_depth - depth)) +
+            sqrt(x2 * x2 + ice_depth * ice_depth)
 
     # and the total distance in vacuum
     Dvacuum = norm(obs)
@@ -445,33 +472,33 @@ function compute_reflected(::ScalarGeometry,
     # project the viw  onto the local horizontal - this is used to
     # shift the location of Xmax back along the local horizontal
     # this defines the horizontal unit-vector in our local coordinate system
-    proj = view - (view ⋅ normal)*normal
+    proj = view - (view ⋅ normal) * normal
     proj /= norm(proj) # make sure it is normalized
 
     # calculate the approximate location of Xmax in our system
     # start at the surface - go "down" by `depth` and then "back"
     # along `flat`
-    source = origin - (2.0*ice_depth - depth)*normal - (x1 + x2)*proj
+    source = origin - (2.0 * ice_depth - depth) * normal - (x1 + x2) * proj
 
     # calculate the optical invariant for this event
     invariant = Nsurf * Rmoon * sin(θ_i)
 
     # and use this to calculate the zenith angle of the emission
     # vector at the location of Xmax
-    θ_emit = asin( invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
+    θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
     # calculate the emission vector from our two component vectors
-    emit = -cos(θ_emit)*normal + sin(θ_emit)*proj
+    emit = -cos(θ_emit) * normal + sin(θ_emit) * proj
     emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
-    ψ = acos( emit ⋅ axis )
+    ψ = acos(emit ⋅ axis)
 
     # calculate the electric field at the spacecraft
     ν, E = regolith_field(fieldmodel, Ecr, ψ, Drego, Dvacuum;
-                          n=NXmax,
-                          density=regolith_density(densitymodel, depth),
-                          ν_min=ν_min, ν_max=ν_max, kwargs...)
+        n=NXmax,
+        density=regolith_density(densitymodel, depth),
+        ν_min=ν_min, ν_max=ν_max, kwargs...)
 
 
     # calculate the incident polarization vector for the emission
@@ -482,11 +509,11 @@ function compute_reflected(::ScalarGeometry,
     # at every step along the ray's path as it refracts through the changing
     # regolith density. We use this to calculate the angle at the ice layer
     # although we currently ignore the additional path length due to the reflection
-    θ_ice = asin( invariant / ( (Rmoon - ice_depth)*Nrego_at_ice ) |> NoUnits )
-    θ_ice = asin( Nsurf * sin(θ_i) / Nrego_at_ice )
+    θ_ice = asin(invariant / ((Rmoon - ice_depth) * Nrego_at_ice) |> NoUnits)
+    θ_ice = asin(Nsurf * sin(θ_i) / Nrego_at_ice)
 
     # the vector incident at the surface
-    incident = cos(θ_i)*normal + sin(θ_i)*proj
+    incident = cos(θ_i) * normal + sin(θ_i) * proj
     incident /= norm(incident) # make sure it is normalized
 
     # incident at the surface
@@ -521,11 +548,11 @@ function compute_reflected(::ScalarGeometry,
     # use the refractive index at the surface - this handles the random
     # properties of surface roughness as well
     tpar, tperp = surface_transmission(roughnessmodel, divergencemodel,
-                                       θ_i, Nsurf, Drego, Dvacuum)
+        θ_i, Nsurf, Drego, Dvacuum)
 
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector
-    poltr = rperp*tperp*(pol ⋅ niperp)*ntperp + rpar*tpar*(pol ⋅ nipar)*ntpar
+    poltr = rperp * tperp * (pol ⋅ niperp) * ntperp + rpar * tpar * (pol ⋅ nipar) * ntpar
 
     # and lastly calculate the polarization angle above the surface
     θpol = atan(poltr ⋅ ntpar, poltr ⋅ ntperp)
@@ -539,7 +566,7 @@ function compute_reflected(::ScalarGeometry,
         sub_tperp = fresnel_tperp(θ_ice, Nrego_at_ice, Nice)
 
         # get the refracted angle in the ice layer using Spherical Snell's law
-        θ_bed = asin( (invariant / ((Rmoon - ice_depth - 0.5*ice_thickness)*Nice)) |> NoUnits )
+        θ_bed = asin((invariant / ((Rmoon - ice_depth - 0.5 * ice_thickness) * Nice)) |> NoUnits)
 
         # get the reflection coefficient from at the ice->regolith
         # or ice->bedrock interface
@@ -557,36 +584,36 @@ function compute_reflected(::ScalarGeometry,
         subperp = sub_tperp * bed_rperp * ice_tperp
 
         # construct the new polarization vector above the surface
-        polsub = subperp*tperp*(pol ⋅ niperp)*ntperp + subpar*tpar*(pol ⋅ nipar)*ntpar
+        polsub = subperp * tperp * (pol ⋅ niperp) * ntperp + subpar * tpar * (pol ⋅ nipar) * ntpar
 
         # and lastly calculate the polarization angle above the surface for this reflection
         θpolsub = atan(polsub ⋅ ntpar, polsub ⋅ ntperp)
 
     else
         # otherwise, we don't treat the subsurface reflection
-        Efsub = 0.0μV/m
-        polsub = SA[0., 0., 0.]
-        θpolsub = 0.
-        subpar = subperp = 0.
+        Efsub = 0.0μV / m
+        polsub = SA[0.0, 0.0, 0.0]
+        θpolsub = 0.0
+        subpar = subperp = 0.0
     end
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos( normal ⋅ (-axis))
+    zenith = acos(normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin...)
 
     # calculate the below horizon angle at the payload
-    el = -(acos( -view ⋅ (antenna / norm(antenna)) ) - pi/2.)
+    el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
 
     # and construct and return the signal
     return Reflected(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
-                     poltr,
-                     ν_min, 10MHz, ν_max,
-                     E .|> (μV/m/MHz), polsub, rad2deg(θpol), rad2deg(θpolsub), rad2deg(el), rad2deg(ψ),
-                     depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), rad2deg(θ_ice),
-                     tpar, tperp, rpar, rperp, subpar, subperp, false)
+        poltr,
+        ν_min, 10MHz, ν_max,
+        E .|> (μV / m / MHz), polsub, rad2deg(θpol), rad2deg(θpolsub), rad2deg(el), rad2deg(ψ),
+        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), rad2deg(θ_ice),
+        tpar, tperp, rpar, rperp, subpar, subperp, false)
 
 end
 

@@ -2,16 +2,16 @@
     Compute the 'direct' RF solution using the vector geometry.
 """
 function compute_direct(::VectorGeometry,
-                        Ecr, origin, axis, antenna, Xmax;
-                        indexmodel=SurfaceDeepIndex(),
-                        densitymodel=StrangwayDensity(),
-                        fieldmodel=ARW(),
-                        divergencemodel=MixedFieldDivergence(),
-                        slopemodel=NoSlope(),
-                        roughnessmodel=NoRoughness(),
-                        kwargs...)
+    Ecr, origin, axis, antenna, Xmax;
+    indexmodel=SurfaceDeepIndex(),
+    densitymodel=StrangwayDensity(),
+    fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    slopemodel=NoSlope(),
+    roughnessmodel=NoRoughness(),
+    kwargs...)
 
-     @assert (slopemodel isa NoSlope) "Vector geometry does not currently support a slope model."
+    @assert (slopemodel isa NoSlope) "Vector geometry does not currently support a slope model."
 
     # we use a minimization routine to find the launch vector such that
     # after we refract at the surface, the RF emission hits the spacecraft.
@@ -21,8 +21,8 @@ function compute_direct(::VectorGeometry,
 
     # use a Newton-Rhapson minimizer to find the correct launch angle
     final_scale = optimize(scale -> propagate_and_refract(Xmax, initial, antenna, scale, indexmodel)[end],
-                           [0.05], LBFGS(),
-                           Optim.Options(x_tol=deg2rad(1e-3))).minimizer
+        [0.05], LBFGS(),
+        Optim.Options(x_tol=deg2rad(1e-3))).minimizer
 
     # calculate the emission vector and the surface
     emit, surface, θ_i, θ_r, residuals = propagate_and_refract(Xmax, initial, antenna, final_scale, indexmodel)
@@ -34,15 +34,15 @@ function compute_direct(::VectorGeometry,
     Dvacuum = norm(surface - antenna)
 
     # the off-axis angle is between axis and emit - both are normalized
-    ψ = acos( emit ⋅ axis )
+    ψ = acos(emit ⋅ axis)
 
     # calculate the depth of Xmax
     depth = norm(origin) - norm(Xmax)
 
     # calculate the electric field at the surface
     ν, E = regolith_field(fieldmodel, Ecr, ψ, Drego, Dvacuum;
-                          n=regolith_index(indexmodel, depth),
-                          density=regolith_density(densitymodel, depth), kwargs...)
+        n=regolith_index(indexmodel, depth),
+        density=regolith_density(densitymodel, depth), kwargs...)
 
     # we need the vector from the surface to the payload
     view = (antenna - surface) / norm(antenna - surface)
@@ -67,25 +67,25 @@ function compute_direct(::VectorGeometry,
 
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector
-    poltr = tperp*(pol ⋅ nperp)*nperp + tpar*(pol ⋅ npar)*npar
+    poltr = tperp * (pol ⋅ nperp) * nperp + tpar * (pol ⋅ npar) * npar
 
     # and construct the integrated electric field vector
     Ef = integrate(ν, E) * poltr
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos( (origin / norm(origin)) ⋅ (-axis))
+    zenith = acos((origin / norm(origin)) ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin...)
 
     # calculate the below horizon angle at the payload
-    el = -(acos( -view ⋅ (antenna / norm(antenna)) ) - pi/2.)
+    el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
 
     # and construct and return the signal
     return Direct(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
-                  Ef .|> (μV/m), rad2deg(el), rad2deg(ψ),
-                  depth, Drego, Dvacuum, rad2deg(θ_i), tpar, tperp)
+        Ef .|> (μV / m), rad2deg(el), rad2deg(ψ),
+        depth, Drego, Dvacuum, rad2deg(θ_i), tpar, tperp)
 
 end
 
@@ -93,15 +93,15 @@ end
 Compute the 'reflected' RF solution using the vector solution.
 """
 function compute_reflected(::VectorGeometry,
-                           Ecr, origin, axis, antenna, Xmax, ice_depth;
-                           indexmodel=SurfaceDeepIndex(),
-                           densitymodel=StrangwayDensity(),
-                           fieldmodel=ARW(),
-                           divergencemodel=MixedFieldDivergence(), Nice=1.375,
-                           slopemodel=NoSlope(),
-                           roughnessmodel=NoRoughness(),
-                           iceroughness=NoIceRoughness(),
-                           kwargs...)
+    Ecr, origin, axis, antenna, Xmax, ice_depth;
+    indexmodel=SurfaceDeepIndex(),
+    densitymodel=StrangwayDensity(),
+    fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(), Nice=1.375,
+    slopemodel=NoSlope(),
+    roughnessmodel=NoRoughness(),
+    iceroughness=NoIceRoughness(),
+    kwargs...)
 
     @assert (slopemodel isa NoSlope) "Vector geometry does not currently support a slope model."
 
@@ -112,7 +112,7 @@ function compute_reflected(::VectorGeometry,
     normal = Xmax / norm(Xmax)
 
     # we reflected Xmax below the ice-layer - this is the apparent starting point
-    Xmax_refl = 2.0*(Rmoon - ice_depth)*normal - Xmax
+    Xmax_refl = 2.0 * (Rmoon - ice_depth) * normal - Xmax
 
     # check that the reflection condition is satisfied
     # @toggled_assert (Rmoon - ice_depth) - norm(Xmax_refl) == norm(Xmax) - ice_depth
@@ -122,8 +122,8 @@ function compute_reflected(::VectorGeometry,
 
     # use a Newton-Rhapson minimizer to find the correct launch angle
     final_scale = optimize(scale -> propagate_and_refract(Xmax_refl, initial, antenna, scale, indexmodel)[end],
-                           [0.05], LBFGS(),
-                           Optim.Options(x_tol=deg2rad(1e-3))).minimizer
+        [0.05], LBFGS(),
+        Optim.Options(x_tol=deg2rad(1e-3))).minimizer
 
     # calculate the emission vector and the surface
     emit, surface, θ_i, θ_r, residuals = propagate_and_refract(Xmax_refl, initial, antenna, final_scale, indexmodel)
@@ -138,18 +138,18 @@ function compute_reflected(::VectorGeometry,
     Dvacuum = norm(surface - antenna)
 
     # calculate the reflected cosmic ray axis
-    axis_refl = axis - 2.0(axis ⋅ normal)*normal
+    axis_refl = axis - 2.0(axis ⋅ normal) * normal
 
     # the off-axis angle is between axis and emit - both are normalized
-    ψ = acos( emit ⋅ axis_refl )
+    ψ = acos(emit ⋅ axis_refl)
 
     # calculate the depth of Xmax
     depth = norm(origin) - norm(Xmax)
 
     # calculate the electric field at the surface
     ν, E = regolith_field(fieldmodel, Ecr, ψ, Drego, Dvacuum;
-                          n=regolith_index(indexmodel, depth),
-                          density=regolith_density(densitymodel, depth), kwargs...)
+        n=regolith_index(indexmodel, depth),
+        density=regolith_density(densitymodel, depth), kwargs...)
 
     # apply roughness to the simulated electric field
     ν, E = ice_roughness(iceroughness, ν, E, θ_i)
@@ -182,7 +182,7 @@ function compute_reflected(::VectorGeometry,
     ice_hit = intersect_with_sphere(Xmax_refl, emit, Rmoon - ice_depth)
 
     # calculate the incident angle at the ice-surface
-    θ_ice = acos( (ice_hit / norm(ice_hit)) ⋅ emit )
+    θ_ice = acos((ice_hit / norm(ice_hit)) ⋅ emit)
 
     # calculate the Fresnel reflection coefficients at the ice
     rpar = fresnel_rpar(θ_ice, regolith_index(indexmodel, ice_depth), Nice)
@@ -190,24 +190,24 @@ function compute_reflected(::VectorGeometry,
 
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector
-    poltr = rperp*tperp*(pol ⋅ nperp)*nperp + rpar*tpar*(pol ⋅ npar)*npar
+    poltr = rperp * tperp * (pol ⋅ nperp) * nperp + rpar * tpar * (pol ⋅ npar) * npar
 
     # and construct the integrated electric field vector
     Ef = integrate(ν, E) * poltr
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos( (origin / norm(origin)) ⋅ (-axis))
+    zenith = acos((origin / norm(origin)) ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin...)
 
     # calculate the below horizon angle at the payload
-    el = -(acos( -view ⋅ (antenna / norm(antenna)) ) - pi/2.)
+    el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
 
     # and construct and return the signal
     return Reflected(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
-                     Ef .|> (μV/m), rad2deg(el), rad2deg(ψ),
-                     depth, Drego, Dvacuum, rad2deg(θ_i), tpar, tperp, rpar, rperp)
+        Ef .|> (μV / m), rad2deg(el), rad2deg(ψ),
+        depth, Drego, Dvacuum, rad2deg(θ_i), tpar, tperp, rpar, rperp)
 
 end
