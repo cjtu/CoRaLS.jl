@@ -70,7 +70,7 @@ function random_surface_normal(slope::GaussianSlope, normal)
     theta = abs(rand(Normal(0.0, slope.σ))) # in radians
 
     # draw an azimuthal angle uniformaly in the desired range
-    phi = rand(Uniform(0., 2π))
+    phi = rand(Uniform(0.0, 2π))
 
     # this is the vector in the z-hat space
     direction = spherical_to_cartesian(theta, phi, 1.0)
@@ -79,10 +79,10 @@ function random_surface_normal(slope::GaussianSlope, normal)
     # we do this with an axis angle representation
 
     # this is our z-hat vector in the original coordinate system
-    zhat = SA[0., 0., 1.]
+    zhat = SA[0.0, 0.0, 1.0]
 
     # construct the angle between z-hat and `normal` - already normalized
-    θ = acos( zhat ⋅ normal )
+    θ = acos(zhat ⋅ normal)
 
     # and construct the *right-handed* axis
     axis = normal × zhat
@@ -144,9 +144,9 @@ function surface_transmission(roughness::GaussianRoughness, divergencemodel, θ_
 
     # only do this near the horizon
     # if abs(θ_i - θtir) > 2.0 * roughness.σ
-    if θ_i < 0.999*θtir
+    if θ_i < 0.999 * θtir
         return (divergence_tpar(divergencemodel, θ_i, n, args...),
-                divergence_tperp(divergencemodel, θ_i, n, args...))
+            divergence_tperp(divergencemodel, θ_i, n, args...))
     end
 
     # the number of samples that we throw

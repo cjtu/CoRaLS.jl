@@ -60,9 +60,9 @@ Calculate the density of the regolith in g/cm^3.
 """
 function regolith_density(::ConstantDensity, depth)
     # a sanity check for when this called outside the regolith
-    depth < 0.0m && return 0.0g/cm^3
+    depth < 0.0m && return 0.0g / cm^3
 
-    return 1.8g/cm^3
+    return 1.8g / cm^3
 end
 
 """
@@ -72,12 +72,12 @@ Calculate the density of the regolith in g/cm^3 for depth.
 """
 function regolith_density(::OldIncorrectDensity, depth)
     # a sanity check for when this called outside the regolith
-    depth < 0.0m && return 0.0g/cm^3
+    depth < 0.0m && return 0.0g / cm^3
 
     # these constants stolen from Peter's CoRaLS MC
-    k = 0.121g/cm^3
-    rho0 = 1.27g/cm^3
-    return rho0 + k*log((depth + 1cm) / cm |> Unitful.NoUnits)
+    k = 0.121g / cm^3
+    rho0 = 1.27g / cm^3
+    return rho0 + k * log((depth + 1cm) / cm |> Unitful.NoUnits)
 end
 
 """
@@ -89,10 +89,10 @@ using the Olhoeft & Strangway curve.
 function regolith_density(::StrangwayDensity, depth)
 
     # a sanity check for when this called outside the regolith
-    depth < 0.0cm && return 0.0g/cm^3
+    depth < 0.0cm && return 0.0g / cm^3
 
     # we define a surface density for the minimum value of the LUT
-    depth <= 2.3e-16cm && return 0.80015g/cm^3
+    depth <= 2.3e-16cm && return 0.80015g / cm^3
 
     # a sanity check for when this called outside the regolith
     depth > 23.80m && return StrangwayDensityLUT(23.80m)
@@ -113,19 +113,19 @@ function create_density_lut(N=100)
 
     # first we create a function to evaluate O&S parameterization
     A1 = 0.0323cm
-    b1 = 4.29cm^3/g
+    b1 = 4.29cm^3 / g
     A2 = 1.9e-39cm
-    b2 = 60.2cm^3/g
+    b2 = 60.2cm^3 / g
 
     # this is our O&S model for z(ρ)
-    z(ρ) = -1.0cm + A1*exp(b1*ρ) + A2*exp(b2*ρ)
+    z(ρ) = -1.0cm + A1 * exp(b1 * ρ) + A2 * exp(b2 * ρ)
 
     # calculate the surface density for the O&S model
     # solution for z(ρ) = 0
     ρ_min = -log(A1 / cm) / b1
 
     # we stop at 1.61g/cm^3 which occurs at 24m below the surface
-    ρ_max = 1.61g/cm^3
+    ρ_max = 1.61g / cm^3
 
     # create an array of densities between the surface
     # density, and
@@ -143,7 +143,7 @@ end
 A constant refractive index as a function of depth.
 """
 function regolith_index(::ConstantIndex, depth)
-     # a sanity check for when this called outside the regolith
+    # a sanity check for when this called outside the regolith
     depth < 0.0m && return 1.0
 
     # otherwise, return a constant index
@@ -174,7 +174,7 @@ A refractive index model from Olhoeft & Strangway.
 """
 function regolith_index(::StrangwayIndex, depth)
     # get the density at this depth - we need this in g/cm^3
-    ρ = regolith_density(StrangwayDensity(), depth) / (g/cm^3)
+    ρ = regolith_density(StrangwayDensity(), depth) / (g / cm^3)
 
     # Dielectric constant fit is done by Olhoeft and Strangway
     # Peter estimated a 10% reduction for lunar PSR's due to the

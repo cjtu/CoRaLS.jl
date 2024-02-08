@@ -23,9 +23,9 @@ function sample_power_law(gamma; min_value=1.0EeV, max_value=1000.0EeV)
     y = rand()
 
     # we need gamma+1. multiple times
-    g1 = gamma+1
+    g1 = gamma + 1
 
-    return ((max_value^g1 - min_value^g1)*y + min_value^g1)^(1. / g1)
+    return ((max_value^g1 - min_value^g1) * y + min_value^g1)^(1.0 / g1)
 
 end
 
@@ -48,9 +48,9 @@ function sample_power_law(gamma, N; min_value=1.0EeV, max_value=1000.0EeV)
     y = rand(N)
 
     # we need gamma+1. multiple times
-    g1 = gamma+1
+    g1 = gamma + 1
 
-    return ((max_value^g1 - min_value^g1).*y .+ min_value^g1).^(1. / g1)
+    return ((max_value^g1 - min_value^g1) .* y .+ min_value^g1) .^ (1.0 / g1)
 
 end
 
@@ -64,7 +64,7 @@ This uses the parameterization from:
 function auger_spectrum(E)
 
     # J0 = 3.30 \pm 0.15 \pm 0.20 x 10^-19 eV^-1 km^-2 sr^-1 yr^-1
-    J0 = 3.30e-19/eV/km^2/sr/yr
+    J0 = 3.30e-19 / eV / km^2 / sr / yr
 
     # \gamma_1 = 3.29 \pm 0.02 \pm 0.05
     γ1 = 3.29
@@ -84,7 +84,7 @@ function auger_spectrum(E)
         return J0 * (E / Eankle)^(-γ1)
     else
         powerlaw = (E / Eankle)^(-γ2)
-        boost = 1.0 + ( Eankle / Es)^(Δγ)
+        boost = 1.0 + (Eankle / Es)^(Δγ)
         cutoff = (1.0 + (E / Es)^(Δγ))^(-1.0)
         return J0 * powerlaw * boost * cutoff
     end
@@ -108,7 +108,7 @@ function auger_spectrum(E, sample)
     uncert(σ) = rand(Normal(0, σ))
 
     # J0 = 3.30 \pm 0.15 \pm 0.20 x 10^-19 eV^-1 km^-2 sr^-1 yr^-1
-    J0 = 3.30e-19/eV/km^2/sr/yr
+    J0 = 3.30e-19 / eV / km^2 / sr / yr
     # J0 = (3.30 + uncert(0.15) + uncert(0.20))*1e-19/eV/km^2/sr/yr
 
     # \gamma_1 = 3.29 \pm 0.02 \pm 0.05
@@ -129,19 +129,20 @@ function auger_spectrum(E, sample)
     spectrum = zeros(length(E)) ./ km ./ km ./ sr ./ yr ./ eV
 
     # if we are less than the ankle, it's just a power law
-    spectrum[E .<= Eankle] = J0 .* (E[E .<= Eankle] ./ Eankle).^(-γ1)
+    spectrum[E.<=Eankle] = J0 .* (E[E.<=Eankle] ./ Eankle) .^ (-γ1)
 
     # otherwise, build up the components and add them to our array
-    powerlaw = (E[E .> Eankle] ./ Eankle).^(-γ2)
-    boost = 1.0 .+ ( Eankle ./ Es).^(Δγ)
-    cutoff = (1.0 .+ (E[E .> Eankle] ./ Es).^(Δγ)).^(-1.0)
-    spectrum[E .> Eankle] = J0 .* powerlaw .* boost .* cutoff
+    powerlaw = (E[E.>Eankle] ./ Eankle) .^ (-γ2)
+    boost = 1.0 .+ (Eankle ./ Es) .^ (Δγ)
+    cutoff = (1.0 .+ (E[E.>Eankle] ./ Es) .^ (Δγ)) .^ (-1.0)
+    spectrum[E.>Eankle] = J0 .* powerlaw .* boost .* cutoff
 
     return spectrum
 end
 
-let ldata=log10.(readdlm("$(@__DIR__)/../data/CR_FLUX_1e9_1e18.csv", ',')),
+let ldata = log10.(readdlm("$(@__DIR__)/../data/CR_FLUX_1e9_1e18.csv", ',')),
     interp = interpolate((ldata[:, 1],), ldata[:, 2], Gridded(Linear()))
+
     """
     Evaluate the cosmic ray spectrum at lower energies.
     """
@@ -176,7 +177,7 @@ function sample_auger(min_energy, max_energy)
     E = rand(Uniform(min_energy ./ EeV, max_energy ./ EeV))EeV
 
     # loop until we get a valid sample
-    while (max_flux - min_flux)*rand() + min_flux > auger_spectrum(E)
+    while (max_flux - min_flux) * rand() + min_flux > auger_spectrum(E)
         E = rand(Uniform(min_energy ./ EeV, max_energy ./ EeV))EeV
     end
 

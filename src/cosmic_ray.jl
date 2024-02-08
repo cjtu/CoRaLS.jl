@@ -1,16 +1,32 @@
 using Distributions
 using Unitful: EeV, g, cm, C
+"""
+    cosmic_ray.jl
+
+This file is part of the `CoRaLS` module and deals with modeling and analysis of cosmic rays. It includes functions to estimate key parameters of cosmic ray interactions, such as the depth of shower maximum (Xmax), and to propagate cosmic rays to their point of maximum interaction. The file also provides tools to model the charge excess profile of cosmic ray-induced air showers.
+
+# Contents
+- `estimate_Xmax`: Estimate mean and variation of Xmax.
+- `propagate_to_Xmax`: Calculate the trajectory of a cosmic ray to Xmax.
+- `charge_excess_profile`: Model the charge excess profile of cosmic ray showers.
+"""
 
 """
-    estimate_Xmax(Ecr)
+    estimate_Xmax(Ecr::Unitful.Quantity)
 
-Estimate the mean and variation in Xmax for a given cosmic ray energy.
+Estimate the mean and variation in Xmax for a given cosmic ray energy `Ecr`.
 
-Use the Auger fits to Xmax and σ(Xmax) from:
+Xmax is the maximum depth in the atmosphere where a cosmic ray-induced air shower reaches its peak intensity. This function uses the Auger fits to Xmax and σ(Xmax) from:
     https://www.icrc2019.org/uploads/1/1/9/0/
         119067782/yushkov_auger_icrc2019_mass1_talk_final.pdf
 
 This is only valid up to 1e20.5 (VERIFY THIS).
+
+# Arguments
+- `Ecr`: Energy of the cosmic ray in EeV.
+
+# Returns
+- Tuple of (mean, sigma) of Xmax in g/cm^2.
 """
 function estimate_Xmax(Ecr)
 
@@ -24,26 +40,37 @@ function estimate_Xmax(Ecr)
 
     # estimate the mean using a two-element linear fit
     if lEcr <= 19.0
-        mean = 730.0g/cm^2 + ((760.0g/cm^2 - 730.0g/cm^2)/(19.0 - 18.0))*(lEcr - 18.0)
+        mean = 730.0g / cm^2 + ((760.0g / cm^2 - 730.0g / cm^2) / (19.0 - 18.0)) * (lEcr - 18.0)
     else
-        mean = 760.0g/cm^2 + ((780.0g/cm^2 - 760.0g/cm^2)/(19.6 - 19.0))*(lEcr - 19.0)
+        mean = 760.0g / cm^2 + ((780.0g / cm^2 - 760.0g / cm^2) / (19.6 - 19.0)) * (lEcr - 19.0)
     end
 
     # and estimate the sigma using a similar two-piece linear fit
     if lEcr <= 18.51
-        sigma = 59.0g/cm^2 + ((51.0g/cm^2 - 59.0g/cm^2)/(18.51 - 18.0))*(lEcr - 18.0)
+        sigma = 59.0g / cm^2 + ((51.0g / cm^2 - 59.0g / cm^2) / (18.51 - 18.0)) * (lEcr - 18.0)
     else
-        sigma = 51.0g/cm^2 + ((25.0g/cm^2 - 51.0g/cm^2)/(19.71 - 18.51))*(lEcr - 18.51)
+        sigma = 51.0g / cm^2 + ((25.0g / cm^2 - 51.0g / cm^2) / (19.71 - 18.51)) * (lEcr - 18.51)
     end
 
     # return the mean and a positive standard deviation
-    return mean, max(sigma, 0.0g/cm^2)
+    return mean, max(sigma, 0.0g / cm^2)
 end
 
 """
-    propagate_to_Xmax(origin, direction, Ecr)
+    propagate_to_Xmax(origin, direction, Ecr, densitymodel)
 
-Propagate a cosmic ray from the surface to Xmax.
+Propagate a cosmic ray from the surface to its shower maximum (Xmax).
+
+This function calculates the point of shower maximum based on the cosmic ray's energy and direction, considering the density model of the medium through which it propagates.
+
+# Arguments
+- `origin`: Starting point of the cosmic ray.
+- `direction`: Direction vector of the cosmic ray.
+- `Ecr`: Energy of the cosmic ray.
+- `densitymodel`: Model of the density of the medium.
+
+# Returns
+- The position vector where the cosmic ray reaches Xmax.
 """
 function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
 
@@ -52,7 +79,7 @@ function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
 
     # throw for the actual grammage at shower max - assume
     # normally distributed around `Xmax` with mean `σ`
-    Xint = rand(Normal(Xmax / (g/cm^2), σ / (g/cm^2)))g/cm^2
+    Xint = rand(Normal(Xmax / (g / cm^2), σ / (g / cm^2)))g / cm^2
 
     # to do this integration in 1D, we need the polar angle
     # of the cosmic ray w.r.t the local surface
@@ -64,7 +91,7 @@ function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
     ctheta = (origin / norm(origin)) ⋅ (-direction)
 
     # we integrate grammage here
-    X = 0g/cm^2
+    X = 0g / cm^2
 
     # our step size for this integration
     dl = 2cm
@@ -79,12 +106,12 @@ function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
         density = regolith_density(densitymodel, depth)
 
         # add the integrated grammage to our total grammage
-        X += dl*density
+        X += dl * density
 
         # and check for an interaction
         if X >= Xint
             # calculate Xmax which is `l` along direction
-            return origin + l*direction
+            return origin + l * direction
         end
 
     end
@@ -96,22 +123,31 @@ function propagate_to_Xmax(origin, direction, Ecr, densitymodel)
 end
 
 """
+    charge_excess_profile(Ecr::Unitful.Quantity)
 
-Return the profile of excess shower charge (Coloumbs).
+Return the profile of excess shower charge (in Coulombs) for a cosmic ray of energy `Ecr`.
+
+This function calculates the charge profile based on parameters derived from ZHAireS simulations of cosmic ray air showers.
+
+# Arguments
+- `Ecr`: Energy of the cosmic ray in EeV.
+
+# Returns
+- Function `Q(z)` that evaluates the shower charge profile at a given distance `z`.
 """
 function charge_excess_profile(Ecr::typeof(1.0EeV))
 
     # TODO: These need to be run at a wider variety of energies
     # these are taken from a ZHAireS shower at 1e20
-    Xmax = 1733.16g/cm^2
-    X0 = 1165.35g/cm^2
-    λ = 87.8409g/cm^2
-    ρ = 1.8g/cm^3
+    Xmax = 1733.16g / cm^2
+    X0 = 1165.35g / cm^2
+    λ = 87.8409g / cm^2
+    ρ = 1.8g / cm^3
 
     # calculate the total charge in the shower
     Qmax = 0.2 * 0.62 * ((Ecr / 1GeV) |> NoUnits) * (1.602176634e-19C)
 
     # and return a  function that evaluates the shower profile at a given distance
-    return Q(z) = Qmax*( ((z .- (X0/ρ)) ./ ((Xmax/ρ) - (X0/ρ))).^(((Xmax/ρ) - (X0/ρ))/(λ/ρ)) ) .* exp.(((Xmax/ρ) .- z) ./ (λ/ρ))
+    return Q(z) = Qmax * (((z .- (X0 / ρ)) ./ ((Xmax / ρ) - (X0 / ρ))) .^ (((Xmax / ρ) - (X0 / ρ)) / (λ / ρ))) .* exp.(((Xmax / ρ) .- z) ./ (λ / ρ))
 
 end
