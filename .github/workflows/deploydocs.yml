@@ -2,18 +2,28 @@ name: DeployDocs
 on:
   - push
   - pull_request
+
+# needed to allow julia-actions/cache to delete old caches that it has created
+permissions:
+    actions: write
+    contents: read
+
 env:
   JULIA_NUM_THREADS: 2
+
 jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.9'
+      - uses: julia-actions/cache@v1
       - name: Install dependencies
+        env: 
+            PYTHON: ""
         run: |
           julia --project=docs -e '
             import Pkg; Pkg.add("Documenter")
