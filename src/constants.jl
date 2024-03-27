@@ -1,4 +1,4 @@
-import Unitful: m, s, H
+import Unitful: m, km, s, H
 """
     constants.jl
 
