@@ -306,11 +306,11 @@ function attenuation_length(ν, n, density; tanδnorm=6.5e-4)
     tanδ = tanδnorm * (density / (1.0g / cm^3)) |> NoUnits
 
     # we need the wavelength for the attenuation length calculation
-    λ = c_0 ./ ν
+    λ = c_0 ./ (n .* ν)
 
     # since tanδ is small, we use an approximation to calculate
     # the attenuation length. I got this from PG on Slack.
-    Latten = λ ./ (π * n * tanδ)
+    Latten = λ ./ (π * tanδ)
 
     return Latten
 

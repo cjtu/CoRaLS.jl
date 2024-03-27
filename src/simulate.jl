@@ -538,7 +538,7 @@ function compute_reflected(::ScalarGeometry,
     ntpar /= norm(ntpar)
 
     # apply roughness to the simulated electric field
-    ν, E = ice_roughness(iceroughness, ν, E, θ_ice)
+    ν, E = ice_roughness(iceroughness, ν, E, θ_ice, n=NXmax) # TODO: Confirm this is the correct index of refraction to use here.
 
     # calculate the Fresnel reflection coefficients at the ice
     rpar = fresnel_rpar(θ_ice, Nrego_at_ice, Nice)
