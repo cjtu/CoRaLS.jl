@@ -6,13 +6,6 @@ using Unitful
 import Unitful: km
 
 """
-Spherical approximation to the polar radius of the Moon.
-
-Note: PG's MC had 1736.0km - TODO check.
-"""
-const Rmoon = 1737.4km
-
-"""
     random_north_pole_point()
 
 Draw a random point on the North lunar pole
