@@ -31,11 +31,9 @@ Typical usage of the module involves importing it and then utilizing its various
 - `plots.jl`: Offers a suite of plotting and visualization tools tailored for representing data and results from cosmic ray studies and related simulations.
 
 """
-# exports from constants.jl
-export Rmoon, c_0, μ_0, k_b
 
 # exports from geometry.jl
-export random_point_on_cap, random_angles_on_cap, horizon_angle, random_direction, spherical_cap_area, spherical_to_cartesian, cartesian_to_spherical, random_vector, intersect_with_sphere, random_north_pole_point, random_south_pole_point, SVector
+export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area
 
 # exports from spectrum.jl
 export auger_spectrum, yr, cr_spectrum
@@ -47,7 +45,7 @@ export rician, polarization_angle, retrigger
 export FarFieldDivergence, NearFieldDivergence, MixedFieldDivergence
 
 # exports from ice.jl
-export NoIceRoughness, GaussianIceRoughness, ice_roughness
+export NoIceRoughness, GaussianIceRoughness
 
 # exports from sky.jl
 export sky_temperature
