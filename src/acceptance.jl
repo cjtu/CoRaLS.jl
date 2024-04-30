@@ -72,12 +72,12 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
 
     # fold in the fraction of the polar caps that have PSRs
     # assuming 30_000 km^2 of total PSR regions
-    AΩ *= 30_000km^2 / spherical_cap_area(θpole, Rmoon)
+    AΩ *= 30_000km^2 / spherical_cap_area(θpole, Rmoon)  # TODO: 30000 is both poles, divinding by only 1 sph cap 
 
     # and account for the fraction of a single hemisphere of the CRs
     # orbit that is visible from the poles, since we only simulate these
     # "visible" SC angles
-    AΩ *= (θpole + θmax) / (π / 2.0)
+    AΩ *= (θpole + θmax) / (π / 2.0)  # TODO:rederive this - max area visible by payload
 
     # construct the bins we sample from in log-space
     energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
