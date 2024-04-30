@@ -46,6 +46,22 @@ out front of the far-field (spherical) divergence.
 struct MixedFieldDivergence <: DivergenceModel end
 
 """
+    fresnel_critical(ni, nt)
+
+Calculate the critical angle for total internal reflection.
+
+# Arguments
+- `ni`: Refractive index of the initial medium.
+- `nt`: Refractive index of the transmitting medium.
+
+# Returns
+- Critical angle for total internal reflection.
+"""
+function fresnel_critical(ni, nt)
+    return asin(nt / ni)
+end
+
+"""
     fresnel_rpar(thetai, ni, nt)
 
 Calculate the parallel Fresnel reflection coefficient. This coefficient represents the ratio of reflected to incident electric field amplitudes for parallel (p-polarized) light at the interface between two media.
@@ -59,6 +75,11 @@ Calculate the parallel Fresnel reflection coefficient. This coefficient represen
 - Parallel Fresnel reflection coefficient.
 """
 function fresnel_rpar(thetai, ni, nt)
+    # Total internal reflection
+    if thetai > fresnel_critical(ni, nt)
+        return 1.0
+    end
+    
     thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
     rpar = tan(thetai - thetat) / tan(thetai + thetat)
 
@@ -84,6 +105,10 @@ Calculate the perpendicular Fresnel reflection coefficient. Similar to `fresnel_
 - Perpendicular Fresnel reflection coefficient.
 """
 function fresnel_rperp(thetai, ni, nt)
+    # Total internal reflection
+    if thetai > fresnel_critical(ni, nt)
+        return 1.0
+    end
     thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
     rperp = -sin(thetai - thetat) / sin(thetai + thetat)
 
