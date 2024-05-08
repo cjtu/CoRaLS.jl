@@ -2,10 +2,7 @@ using Test
 using LinearAlgebra
 import Unitful: km, m, s, H, eV, K, MHz, V
 
-# include("../src/constants.jl")
-# include("../src/geometry.jl")
-# include("../src/CoRaLS.jl")
-using CoRaLS
+include("../src/geometry.jl")
 
 @testset verbose = true "geometry.jl" begin
     # Test random points on poles

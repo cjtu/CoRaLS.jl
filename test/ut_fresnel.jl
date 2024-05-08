@@ -2,7 +2,7 @@ using Test
 using LinearAlgebra
 
 include("../src/fresnel.jl")
-# using CoRaLS
+
 @testset verbose = true "fresnel.jl" begin
     theta0 = 0
     theta30 = π / 6

@@ -1,11 +1,13 @@
-using CoRaLS
-# using Test
+using Test
+# using Random
 
-# @testset "CoRaLS.jl" begin
-#     # Write your tests here.
-# end
+# Set a random seed for reproducible tests
+# SEED = 10  # trunc(Int, time())
+# println("# Random seed ($SEED), on VERSION == $VERSION")
+# Random.seed!(SEED)
 
-include("ut_constants.jl");
-include("ut_geometry.jl");
-include("ut_fresnel.jl");
-include("ut_ice.jl");
+@testset "All Tests" begin
+    include("ut_geometry.jl");
+    include("ut_fresnel.jl");
+    include("ut_ice.jl");    
+end
