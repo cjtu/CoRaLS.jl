@@ -4,63 +4,120 @@ using LinearAlgebra
 include("../src/fresnel.jl")
 
 @testset verbose = true "fresnel.jl" begin
-    theta0 = 0
+    # Validate Fresnel reflectance / transmission 
+    # note: most sources give the POWER reflection/transmission R and T.
+    # we're concerned with the amplitude reflection/transmission r and t.
+    # The conversion is below (used to check results from power calculations):
+    T(t, θ, n1, n2) = t^2 * (n2 * cos(snell_θt(θ, n1, n2))) / (n1 * cos(θ))
+    R(r) = r^2
+
     theta30 = π / 6
     theta45 = π / 4
-    theta60 = π / 3
     n_air = 1.0
     n_water = 1.33
     n_glass = 1.5
 
-    @testset "Parallel Refelection: fresnel_rpar" begin
-        # Air to water transition at 45 degrees
-        rpar = fresnel_rpar(theta45, n_air, n_water)
-        @test 0.0 <= rpar <= 1.0
+    @testset "Fresnell Air -> Water (30 deg)" begin
+        θi = theta30
+        n1 = n_air
+        n2 = n_water
+        rpar, rperp, tpar, tperp = fresnel_coeffs(θi, n1, n2)
+        rpar2, rperp2, tpar2, tperp2 = fresnel_coeffs(θi, n1, n2; simple_t = false)
 
-        rpar = fresnel_rpar(0.9826204, n_air, n_glass)
-        @test 0.0 <= rpar <= 0.001
-    end
-
-    @testset "Pependicular Reflection: fresnel_rperp" begin
-        # Air to water transition at 45 degrees
-        rperp = fresnel_rperp(theta45, n_air, n_water)
-        @test -1.0 <= rperp <= 0.0
-    end
-
-    # # Test for total internal reflection
-    # @testset "Total Internal Reflection" begin
-    #     ni = 1.5   # Refractive index of glass
-    #     nt = 1.0   # Refractive index of air, to simulate the possibility of total internal reflection
-    #     thetai = asin(nt / ni) + 0.01  # Angle just over the critical angle for total internal reflection
-    #     rperp = fresnel_rperp(thetai, ni, nt)
-    #     @test rperp == 1.0  # Expecting total internal reflection, so reflection coefficient should be 1
-    # end
-
-    @testset "Parallel Transmission: fresnel_tpar" begin
-        # Scenario: Air to water transition at a 30-degree angle of incidence
-        @testset "Air to Water at 30 degrees" begin
-            tpar = fresnel_tpar(theta30, n_air, n_water)
-            @test 0.0 <= tpar <= 1.0  # Transmission coefficient should be between 0 and 1
+        @testset "Reflected" begin
+            @test R(rpar) ≈ 0.0117 atol = 1e-3
+            @test R(rperp) ≈ 0.0305 atol = 1e-3
         end
 
-        # Scenario: Checking conservation of energy
-        @testset "Conservation of Energy" begin
-            tpar = fresnel_tpar(theta45, n_air, n_glass)
-            rpar = fresnel_rpar(theta45, n_air, n_glass)
-            @test tpar + rpar ≈ 1.0 atol = 1e-5  # Sum of transmission and reflection coefficients should be 1
-        end
-    end
-
-    @testset "Perpendicular Transmission: fresnel_tperp" begin
-        @testset "Normal Incidence" begin
-            tperp = fresnel_tperp(theta0, n_air, n_water)
-            @test 0.0 <= tperp <= 1.0  # Expecting coefficient to be in [0,1]
+        @testset "Transmitted" begin
+            @test T(tpar, θi, n1, n2) ≈ 0.988 atol = 1e-3
+            @test T(tperp, θi, n1, n2) ≈ 0.969 atol = 1e-3
         end
 
         @testset "Conservation of Energy" begin
-            tperp = fresnel_tperp(theta45, n_air, n_glass)
-            rperp = fresnel_rperp(theta45, n_air, n_glass)
-            @test tperp + rperp ≈ 1.0 atol = 1e-5  # Ensuring energy conservation
+            @test R(rpar) + T(tpar, θi, n1, n2) ≈ 1.0 atol = 1e-5 
+            @test R(rperp) + T(tperp, θi, n1, n2) ≈ 1.0 atol = 1e-5
         end
+
+        @testset "Transmitted (full formulas)" begin
+            @test rpar2 ≈ rpar
+            @test rperp2 ≈ rperp
+            @test tpar2 ≈ tpar
+            @test tperp2 ≈ tperp
+        end
+
+        @testset "Convservation of Energy (full formulas)" begin
+            @test R(rpar2) + T(tpar2, θi, n1, n2) ≈ 1.0 atol = 1e-5 
+            @test R(rperp2) + T(tperp2, θi, n1, n2) ≈ 1.0 atol = 1e-5
+        end
+    end
+
+    @testset "Fresnel Water -> Glass (45 deg)" begin
+        θi = theta45
+        n1 = n_water
+        n2 = n_glass
+        rpar, rperp, tpar, tperp = fresnel_coeffs(θi, n1, n2)
+        rpar2, rperp2, tpar2, tperp2 = fresnel_coeffs(θi, n1, n2; simple_t = false)
+
+        @testset "Reflected" begin
+            @test R(rpar) ≈ 0.000137 atol = 1e-3
+            @test R(rperp) ≈ 0.0117 atol = 1e-3
+        end
+
+        @testset "Transmitted" begin
+            @test T(tpar, θi, n1, n2) ≈ 1.00 atol = 1e-3
+            @test T(tperp, θi, n1, n2) ≈ 0.988 atol = 1e-3
+        end
+
+        @testset "Conservation of Energy" begin
+            @test R(rpar) + T(tpar, θi, n1, n2) ≈ 1.0 atol = 1e-5 
+            @test R(rperp) + T(tperp, θi, n1, n2) ≈ 1.0 atol = 1e-5
+        end
+
+        @testset "Transmitted (full formulas)" begin
+            @test rpar2 ≈ rpar
+            @test rperp2 ≈ rperp
+            @test tpar2 ≈ tpar
+            @test tperp2 ≈ tperp
+        end
+
+        @testset "Convservation of Energy (full formulas)" begin
+            @test R(rpar2) + T(tpar2, θi, n1, n2) ≈ 1.0 atol = 1e-5 
+            @test R(rperp2) + T(tperp2, θi, n1, n2) ≈ 1.0 atol = 1e-5
+        end
+
+    end
+
+    @testset "Water -> Air (n2 > n1)" begin
+        θi, n1, n2 = theta30, n_water, n_air
+        rpar, rperp, tpar, tperp = fresnel_coeffs(θi, n1, n2)
+        @testset "Reflected" begin
+            @test R(rpar) ≈ 0.00469 atol = 1e-3
+            @test R(rperp) ≈ 0.0455 atol = 1e-3
+        end
+
+        @testset "Transmitted" begin
+            @test T(tpar, θi, n1, n2) ≈ 0.995 atol = 1e-3
+            @test T(tperp, θi, n1, n2) ≈ 0.955 atol = 1e-3
+        end
+    end
+
+
+    @testset "Normal Incidence" begin
+        rpar, rperp, tpar, tperp = fresnel_coeffs(0, n_air, n_water)
+        @test rpar == 0.0
+        @test rperp == 0.0
+        @test tpar == 1.0
+        @test tperp == 1.0
+    end
+
+    @testset "Total Internal Reflection" begin
+        # Choose angle just over the critical angle for TIR
+        θi = fresnel_critical(n_air, n_glass) + 0.01  
+        rpar, rperp, tpar, tperp = fresnel_coeffs(θi, n_air, n_water)
+        @test rpar == 1.0
+        @test rperp == 1.0
+        @test tpar == 0.0
+        @test tperp == 0.0
     end
 end

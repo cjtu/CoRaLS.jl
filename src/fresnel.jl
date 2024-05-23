@@ -1,5 +1,3 @@
-using ToggleableAsserts
-
 """
     fresnel.jl
 
@@ -10,9 +8,7 @@ using ToggleableAsserts
 
 - `FarFieldDivergence`, `NearFieldDivergence`, `MixedFieldDivergence`: Specific types representing different divergence models based on field assumptions.
 
-- `fresnel_rpar`, `fresnel_rperp`: Functions to calculate parallel and perpendicular Fresnel reflection coefficients.
-
-- `fresnel_tpar`, `fresnel_tperp`: Functions to calculate parallel and perpendicular Fresnel transmission coefficients.
+- `fresnel_coeffs`: Calculates Fresnel amplitude coefficients (reflected and transmitted, parallel and perpendicular).
 
 - `divergence_tperp`, `divergence_tpar`: Functions that modify Fresnel transmission coefficients to include the effects of wave divergence at the surface.
 """
@@ -46,6 +42,13 @@ out front of the far-field (spherical) divergence.
 struct MixedFieldDivergence <: DivergenceModel end
 
 """
+    θt(θi, ni, nt)
+
+    Calculate the transmitted angle from Snell's Law.
+"""
+snell_θt(θi, ni, nt) = asin((ni / nt) * sin(θi))
+
+"""
     fresnel_critical(ni, nt)
 
 Calculate the critical angle for total internal reflection.
@@ -58,110 +61,54 @@ Calculate the critical angle for total internal reflection.
 - Critical angle for total internal reflection.
 """
 function fresnel_critical(ni, nt)
-    return asin(nt / ni)
+    ni > nt && return asin(nt / ni)
+    return π / 2  # no total internal reflection
 end
 
 """
-    fresnel_rpar(thetai, ni, nt)
+    fresnel_coeffs(θi, ni, nt; simple_t = true)
 
-Calculate the parallel Fresnel reflection coefficient. This coefficient represents the ratio of reflected to incident electric field amplitudes for parallel (p-polarized) light at the interface between two media.
+Calculate the parallel and perpendicular Fresnel reflection and transmission 
+coefficients. 
+
+Each coefficient is the ratio of reflected/transmitted to incident amplitude
+(denoted r and t, not to be confused with fresnel coefficients for power, R and T)
+
+If simple_t is true (default) then the transmission coefficients
+are calculated as follows, otherwise they use the full Fresnel equations.
+    t_parallel = ni * (r_parallel + 1) / nt
+    t_perpendicular = r_perpendicular + 1
+
 
 # Arguments
-- `thetai`: Incident angle.
+- `θi`: Incident angle.
 - `ni`: Refractive index of the initial medium.
 - `nt`: Refractive index of the transmitting medium.
 
 # Returns
-- Parallel Fresnel reflection coefficient.
+- `(rpar, rperp, tpar, tperp)`: Fresnel coefficients.
 """
-function fresnel_rpar(thetai, ni, nt)
-    # Total internal reflection
-    if thetai > fresnel_critical(ni, nt)
-        return 1.0
+function fresnel_coeffs(θi, ni, nt; simple_t::Bool = true)
+    if θi >= fresnel_critical(ni, nt)  # Total internal reflection
+        return 1.0, 1.0, 0.0, 0.0
+    elseif isapprox(θi, 0.0; atol = 1e-6)  # Prevent normal incidence => NaN
+        return 0.0, 0.0, 1.0, 1.0
     end
-    
-    thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
-    rpar = tan(thetai - thetat) / tan(thetai + thetat)
+    θt = snell_θt(θi, ni, nt)
 
-    # check if valid
-    isnan(rpar) && return 0.0
+    # Refelcted coefficients (Fresnel's sine and tangent law)
+    rpar = tan(θi - θt) / tan(θi + θt)
+    rperp = -sin(θi - θt) / sin(θi + θt)
 
-    @toggled_assert abs(rpar) <= 1.0 "Rpar > 1.0", rpar
-    return rpar
-
-end
-
-"""
-    fresnel_rperp(thetai, ni, nt)
-
-Calculate the perpendicular Fresnel reflection coefficient. Similar to `fresnel_rpar`, but for perpendicular (s-polarized) light.
-
-# Arguments
-- `thetai`: Incident angle.
-- `ni`: Refractive index of the initial medium.
-- `nt`: Refractive index of the transmitting medium.
-
-# Returns
-- Perpendicular Fresnel reflection coefficient.
-"""
-function fresnel_rperp(thetai, ni, nt)
-    # Total internal reflection
-    if thetai > fresnel_critical(ni, nt)
-        return 1.0
+    # Transmitted coefficients
+    tpar = ni * (rpar + 1) / nt
+    tperp = rperp + 1
+    if !simple_t
+        tpar = 2.0 * ni * cos(θi) / (nt * cos(θi) + ni * cos(θt))
+        tperp = 2.0 * ni * cos(θi) / (ni * cos(θi) + nt * cos(θt))
     end
-    thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
-    rperp = -sin(thetai - thetat) / sin(thetai + thetat)
 
-    # check if valid
-    isnan(rperp) && return 0.0
-
-    @toggled_assert abs(rperp) <= 1.0 "Rperp > 1.0"
-    return rperp
-
-end
-
-"""
-    fresnel_tpar(thetai, ni, nt)
-
-Calculate the parallel Fresnel transmission coefficient. It quantifies the amplitude of the transmitted electric field compared to the incident field for parallel polarization.
-
-# Arguments
-- `thetai`: Incident angle.
-- `ni`: Refractive index of the initial medium.
-- `nt`: Refractive index of the transmitting medium.
-
-# Returns
-- Parallel Fresnel transmission coefficient.
-"""
-function fresnel_tpar(thetai, ni, nt)
-    return 1.0 - fresnel_rpar(thetai, ni, nt)
-    # otherwise, go ahead with the Fresnel calculation
-    thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
-    tpar = 2.0 * sin(thetat) * cos(thetai) /
-           (sin(thetai + thetat) * cos(thetai - thetat))
-    return tpar
-
-end
-
-"""
-    fresnel_tperp(thetai, ni, nt)
-
-Calculate the perpendicular Fresnel transmission coefficient for s-polarized light at an interface.
-
-# Arguments
-- `thetai`: Incident angle.
-- `ni`: Refractive index of the initial medium.
-- `nt`: Refractive index of the transmitting medium.
-
-# Returns
-- Perpendicular Fresnel transmission coefficient.
-"""
-function fresnel_tperp(thetai, ni, nt)
-    return 1.0 - fresnel_rperp(thetai, ni, nt)
-    # otherwise, go ahead with the Fresnel calculation
-    thetat = asin((ni / nt) * sin(thetai)) # transmitted angle
-    tperp = 2.0 * sin(thetat) * cos(thetai) / sin(thetai + thetat)
-    return tperp
+    return rpar, rperp, tpar, tperp
 end
 
 """
