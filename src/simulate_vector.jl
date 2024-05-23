@@ -185,8 +185,7 @@ function compute_reflected(::VectorGeometry,
     θ_ice = acos((ice_hit / norm(ice_hit)) ⋅ emit)
 
     # calculate the Fresnel reflection coefficients at the ice
-    rpar = fresnel_rpar(θ_ice, regolith_index(indexmodel, ice_depth), Nice)
-    rperp = fresnel_rperp(θ_ice, regolith_index(indexmodel, ice_depth), Nice)
+    rpar, rperp = fresnel_coeffs(θ_ice, regolith_index(indexmodel, ice_depth), Nice)[1:2]
 
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector

@@ -25,8 +25,7 @@ Fresnel reflections and transmissions related to cosmic ray detection. It includ
 ```@docs
 CoRaLS.DivergenceModel
 CoRaLS.FarFieldDivergence
-CoRaLS.fresnel_rpar
-CoRaLS.fresnel_tpar
+CoRaLS.fresnel_coeffs
 CoRaLS.divergence_tperp
 ```
 

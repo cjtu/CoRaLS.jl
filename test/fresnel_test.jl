@@ -13,8 +13,8 @@ function test_fresnel_reflection()
 
     # make the plot
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.plot(θ_i, [CoRaLS.fresnel_rpar(deg2rad(θ), nrego, nice) for θ in θ_i], label=L"$r_{\parallel}$")
-    ax.plot(θ_i, [CoRaLS.fresnel_rperp(deg2rad(θ), nrego, nice) for θ in θ_i], label=L"$r_{\perp}$")
+    ax.plot(θ_i, [CoRaLS.fresnel_coeffs(deg2rad(θ), nrego, nice)[1] for θ in θ_i], label=L"$r_{\parallel}$")
+    ax.plot(θ_i, [CoRaLS.fresnel_coeffs(deg2rad(θ), nrego, nice)[2] for θ in θ_i], label=L"$r_{\perp}$")
     ax.axhline(0., c="k", ls="dotted")
     ax.set(xlabel="Incident Angle (deg)", ylabel="Fresnel Coefficient", title=L"Regolith $\rightarrow$ Ice Reflection")
     ax.set_axisbelow(true)
@@ -37,8 +37,8 @@ function test_fresnel_transmission()
 
     # make the plot
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.plot(rad2deg.(θ_i), [CoRaLS.fresnel_tpar(θ, ni, nt) for θ in θ_i], label=L"$t_{\parallel}$")
-    ax.plot(rad2deg.(θ_i), [CoRaLS.fresnel_tperp(θ, ni, nt) for θ in θ_i], label=L"$t_{\perp}$")
+    ax.plot(rad2deg.(θ_i), [CoRaLS.fresnel_coeffs(θ, ni, nt)[3] for θ in θ_i], label=L"$t_{\parallel}$")
+    ax.plot(rad2deg.(θ_i), [CoRaLS.fresnel_coeffs(θ, ni, nt)[4] for θ in θ_i], label=L"$t_{\perp}$")
     ax.axhline(0., c="k", ls="dotted")
     ax.set(xlabel="Incident Angle (deg)", ylabel="Fresnel Coefficient", title=L"Regolith $\rightarrow$ Vacuum Transmission")
     ax.set_axisbelow(true)
