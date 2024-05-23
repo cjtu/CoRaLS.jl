@@ -541,8 +541,7 @@ function compute_reflected(::ScalarGeometry,
     ν, E = ice_roughness(iceroughness, ν, E, θ_ice, NXmax)
 
     # calculate the Fresnel reflection coefficients at the ice
-    rpar = fresnel_rpar(θ_ice, Nrego_at_ice, Nice)
-    rperp = fresnel_rperp(θ_ice, Nrego_at_ice, Nice)
+    rpar, rperp = fresnel_coeffs(θ_ice, Nrego_at_ice, Nice)[1:2]
 
     # calculate the modified Fresnel coefficients for transmission
     # use the refractive index at the surface - this handles the random
@@ -562,21 +561,18 @@ function compute_reflected(::ScalarGeometry,
     if ice_thickness > 0.0m
 
         # get the transmission from the regolith into the ice
-        sub_tpar = fresnel_tpar(θ_ice, Nrego_at_ice, Nice)
-        sub_tperp = fresnel_tperp(θ_ice, Nrego_at_ice, Nice)
+        sub_tpar, sub_tperp = fresnel_coeffs(θ_ice, Nrego_at_ice, Nice)[3:4]
 
         # get the refracted angle in the ice layer using Spherical Snell's law
         θ_bed = asin((invariant / ((Rmoon - ice_depth - 0.5 * ice_thickness) * Nice)) |> NoUnits)
 
         # get the reflection coefficient from at the ice->regolith
         # or ice->bedrock interface
-        bed_rpar = fresnel_rpar(θ_bed, Nice, Nbed)
-        bed_rperp = fresnel_rperp(θ_bed, Nice, Nbed)
+        bed_rpar, bed_rperp = fresnel_coeffs(θ_bed, Nice, Nbed)[1:2]
 
         # and then the transmission coefficient from the ice back
         # into the top of the regolith
-        ice_tpar = fresnel_tpar(θ_bed, Nice, Nrego_at_ice)
-        ice_tperp = fresnel_tperp(θ_bed, Nice, Nrego_at_ice)
+        ice_tpar, ice_tperp = fresnel_coeffs(θ_bed, Nice, Nrego_at_ice)[3:4]
 
         # and finally stack them all together
         # # `sub` for "sub"surface layer.

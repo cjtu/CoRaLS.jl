@@ -66,8 +66,8 @@ function plot_incident_angles(AΩ)
     Nreg = regolith_index(StrangwayIndex(), 6.0m)
     Nice = 1.305
     Θ = 0.0:0.01:rad2deg(asin(Nice / Nreg)) # incident angles at the ice
-    rpar = [fresnel_rpar(θ, Nreg, Nice) for θ in deg2rad.(Θ)]
-    rperp = [fresnel_rperp(θ, Nreg, Nice) for θ in deg2rad.(Θ)]
+    rpar = [fresnel_coeffs[1] for θ in deg2rad.(Θ)]
+    rperp = [fresnel_coeffs[2] for θ in deg2rad.(Θ)]
 
     # plot the reflection coefficients behind
     raxes[2].plot(Θ, abs.(rpar), alpha=0.6, zorder=0,
