@@ -57,6 +57,40 @@ end
 """
 Evaluate the Auger UHECR spectrum in eV^-1 km^-2 sr^-1 yr^-1.
 
+Valid for 10^18 to ~10^20 eV.
+
+See Equation 9 in:
+    Measurement of the cosmic-ray energy spectrum above 2.5e18 eV using the 
+    Pierre Auger Observatory. Phys.Rev.D (2020) 
+    https://doi.org/10.1103/PhysRevD.102.062005
+
+"""
+function auger_spectrum_2020(E)
+    # Table III
+    J0 = 1.315e-18 / km^2 / sr / yr / eV
+    γ1 = 3.29
+    γ2 = 2.51
+    γ3 = 3.05
+    γ4 = 5.1
+    E12 = 5.0e18eV
+    E23 = 13e18eV
+    E34 = 46e18eV
+    E0 = (10.0 ^ 18.5)eV  # "arbitrary reference energy E0 fixed to 1018.5 eV"
+    ωij = 0.05  # "the ωij parameters are fixed... at the minimal value of 0.05"
+
+    # Equation 9
+    preexp = J0 * (E / E0) ^ -γ1
+    plaw1 = (1.0 + (E / E12) ^ (1/ωij))^((γ1 - γ2) * ωij)
+    plaw2 = (1.0 + (E / E23) ^ (1/ωij))^((γ2 - γ3) * ωij)
+    plaw3 = (1.0 + (E / E34) ^ (1/ωij))^((γ3 - γ4) * ωij)
+
+    return preexp * plaw1 * plaw2 * plaw3
+end
+
+
+"""
+Evaluate the Auger UHECR spectrum in eV^-1 km^-2 sr^-1 yr^-1.
+
 This uses the parameterization from:
     https://academic.oup.com/ptep/article/2017/12/12A103/4665686
 

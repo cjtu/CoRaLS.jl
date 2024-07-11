@@ -36,7 +36,7 @@ Typical usage of the module involves importing it and then utilizing its various
 export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area
 
 # exports from spectrum.jl
-export auger_spectrum, yr, cr_spectrum
+export auger_spectrum_2020, auger_spectrum, yr, cr_spectrum
 
 # exports from utils.jl
 export rician, polarization_angle, retrigger
