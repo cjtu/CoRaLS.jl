@@ -10,4 +10,5 @@ using Test
     include("ut_geometry.jl");
     include("ut_fresnel.jl");
     include("ut_ice.jl");    
+    include("ut_spectrum.jl");
 end
