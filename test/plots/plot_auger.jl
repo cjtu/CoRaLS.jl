@@ -1,6 +1,41 @@
 using CoRaLS
 using PyPlot
 using Unitful: eV, km, sr, yr, ustrip
+using Test
+
+function plot_auger_2021_comparison()
+    # Raw counts from Table 10 of Auger 2021 paper
+    J_expected = [6.431e-14, 3.191e-14, 1.577e-14, 7.643e-15, 3.650e-15, 1.739e-15, 8.32e-16, 3.90e-16, 1.85e-16, 8.87e-17, 4.14e-17, 1.9e-17, 8.47e-18, 4.17e-18, 1.929e-18, 9.041e-19, 4.294e-19, 2.167e-19, 1.226e-19, 6.82e-20, 3.79e-20, 2.07e-20, 1.04e-20, 0.53e-20, 2.49e-21, 1.25e-21, 5.99e-22, 1.95e-22, 8.1e-23, 1.8e-23, 5.5e-24, 2.9e-24]
+    bin_centers = range(17.05, 20.15+0.05, length=length(J_expected))
+    bins = 10 .^ bin_centers
+
+    # Auger spectrum parameterization
+    J_auger = auger_spectrum_2021.(bins .* eV)  # [1 / (km^2 sr yr eV)]
+    J_auger = round.(ustrip.(J_auger), sigdigits=3)  # cancel units for plot
+
+    # Plot
+    rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    rcParams["axes.axisbelow"] = true
+    rcParams["axes.grid"] = true
+    rcParams["grid.linestyle"] = "dashed"
+    rcParams["xtick.direction"] = "in"
+    rcParams["ytick.direction"] = "in"
+
+    fig, axs = plt.subplots(1, 1, figsize=(8, 6))
+    axs.scatter(bins, J_expected, color="r",  label="J (Table 10, Auger 2020)")
+    axs.loglog(bins, J_auger, color="k", linestyle="--", label="Auger 2021 parameterization")
+    [axs.annotate(eJ, (E, eJ), rotation=30, color="r") for (E, eJ) in zip(bins, J_expected)]
+    [axs.annotate(J, (E, J), ha="right", va="top", rotation=30) for (E, J) in zip(bins, J_auger)]
+    axs.set_xlabel("Energy [eV]")
+    axs.set_ylabel("J [1 / (km^2 yr sr eV)]")
+    axs.set_xlim(5e16, 5e20)
+    axs.set_ylim(1e-26, 1e-12)
+    axs.legend()
+    fig.savefig("$(@__DIR__)/../figs/auger21_comparison.png")
+
+    @test J_auger ≈ J_expected rtol = 0.025  # 13% offset
+
+end
 
 function plot_auger_2020_comparison()
     # Raw counts from Fig. 7 of Auger 2020 paper
@@ -48,7 +83,8 @@ function plot_auger_2020_comparison()
     axs[2].set_xlim(1.5e18, 2e20)
     axs[2].set_ylim(5e-1, 1e6)
     axs[2].legend()
-    fig.savefig("$(@__DIR__)/../figs/auger_comparison.png")
+    fig.savefig("$(@__DIR__)/../figs/auger20_comparison.png")
 end
 
-plot_auger_2020_comparison()
+# plot_auger_2020_comparison()
+plot_auger_2021_comparison()

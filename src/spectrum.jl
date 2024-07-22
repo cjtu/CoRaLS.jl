@@ -87,6 +87,48 @@ function auger_spectrum_2020(E)
     return preexp * plaw1 * plaw2 * plaw3
 end
 
+"""
+Evaluate the Auger UHECR spectrum in eV^-1 km^-2 sr^-1 yr^-1.
+
+Valid for 10^17 to ~10^20 eV.
+
+See Equation 9 in:
+Abreu, P., Aglietta, M., Albury, J.M. et al. The energy spectrum of cosmic rays 
+beyond the turn-down around 10^17 eV as measured with the surface detector of 
+the Pierre Auger Observatory. Eur. Phys. J. C 81, 966 (2021). 
+https://doi.org/10.1140/epjc/s10052-021-09700-w
+
+
+"""
+function auger_spectrum_2021(E)
+    # Table 7
+    J0 = 1.309e-18 / km^2 / sr / yr / eV
+    ω01 = 0.43
+    γ1 = 3.298
+    γ2 = 2.52
+    γ3 = 3.08
+    γ4 = 5.2
+    E12 = 4.9e18eV
+    E23 = 1.4e19eV
+    E34 = 4.7e19eV
+    γ0 = 2.64
+    E01 = 1.24e17eV
+    E0 = (10.0 ^ 18.5)eV  # "arbitrary reference energy E0 fixed to 1018.5 eV"
+    ωij = 0.05  # "ω12, ω23, ω34
+
+    # Equation 13 (split in numerator and denominator factors)
+    preexp = J0 * (E / E0) ^ -γ0
+    plaw0n = (1.0 + (E / E01) ^ (1/ω01))^((γ0 - γ1) * ω01)
+    plaw0d = (1.0 + (E0 / E01) ^ (1/ω01))^((γ0 - γ1) * ω01)
+    plaw1n = (1.0 + (E / E12) ^ (1/ωij))^((γ1 - γ2) * ωij)
+    plaw1d = (1.0 + (E0 / E12) ^ (1/ωij))^((γ1 - γ2) * ωij)
+    plaw2n = (1.0 + (E / E23) ^ (1/ωij))^((γ2 - γ3) * ωij)
+    plaw2d = (1.0 + (E0 / E23) ^ (1/ωij))^((γ2 - γ3) * ωij)
+    plaw3n = (1.0 + (E / E34) ^ (1/ωij))^((γ3 - γ4) * ωij)
+    plaw3d = (1.0 + (E0 / E34) ^ (1/ωij))^((γ3 - γ4) * ωij)
+
+    return preexp * (plaw0n * plaw1n * plaw2n * plaw3n) / (plaw0d * plaw1d * plaw2d * plaw3d)
+end
 
 """
 Evaluate the Auger UHECR spectrum in eV^-1 km^-2 sr^-1 yr^-1.
