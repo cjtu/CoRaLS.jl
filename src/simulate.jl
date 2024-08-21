@@ -93,6 +93,9 @@ mutable struct Direct <: AbstractSignal
     θ_emit::Float64 # the zenith angle of the emitted ray (deg)
     tpar::Float64 # the parallel Fresnel transmission coefficient
     tperp::Float64 # the perpendicular Fresnel transmission coefficient
+    is_polar::Bool # target is in polar region
+    is_psr::Bool # target is psr
+    is_mare::Bool # target is mare
     triggered::Bool # did this event trigger
 end
 
@@ -126,6 +129,9 @@ mutable struct Reflected <: AbstractSignal
     rperp::Float64 # the perpendicular Fresnel reflection coefficient
     subpar::Float64 # the parallel Fresnel coefficient from the subsurface refl.
     subperp::Float64 # the perpendicular Fresnel coefficient from the subsurface refl.
+    is_polar::Bool # target is in polar region
+    is_psr::Bool # target is psr
+    is_mare::Bool # target is mare
     triggered::Bool # did this event trigger
 end
 
@@ -255,6 +261,119 @@ function throw_cosmicray(Ecr;
 end
 
 """
+Simulate a cosmic ray trial sampling the spacecraft location from an Orbit.
+"""
+function throw_cosmicray(Ecr, orbit;
+    ice_depth=5m, altitude=-1.0km,
+    geometrymodel=ScalarGeometry(),
+    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    densitymodel=StrangwayDensity(),
+    slopemodel=GaussianSlope(7.6),
+    roughnessmodel=GaussianRoughness(2.0),
+    iceroughness=GaussianIceRoughness(2.0cm),
+    kwargs...)
+
+    # Sample random point on Moon for CR entry
+    # Sample gaussian in x,y,z and divide by hypot to put on unit sphere
+    xyz = randn(3); 
+    surface = Rmoon * xyz / norm(xyz)
+
+    # Determine if point is N polar PSR, S polar PSR, highland, mare
+    # Simple estimate based on illumination above ~80deg (Mazarico 2011, Icarus)
+    # and total mare area (Nelson et al. 2016)
+    #  Polar cap area 80-90deg: 2.8814e5 km^2
+    #  Npole PSR area (>1 km^2): 1.2866e4 km^2 or 4.46% of Npole
+    #  Spole PSR area (>1 km^2): 1.6055e4 km^2 or 5.57% of Spole
+    #  Equatorial area (Amoon - 2*PolarCapArea): 3.7356e7 km^2
+    #  Maria area: 6.15e6 km^2 or 16.49% of equatorial region
+    #  Highlands: the non PSR and non maria area 83.7%
+    theta, phi, r = cartesian_to_spherical(surface...); 
+    φ, λ = rad2deg.([theta-pi/2, phi])  # lat (-90, 90), lon (-180, 180)
+
+    # TODO: Passing these to direct/reflected seems bad, handling multiple states
+    #  when the source truth is the sc vector. but calculated it here since direct
+    #  and reflected will have different branches based on if eq mare vs polar psr
+    if lat > 80
+        is_polar = true
+        is_psr = rand() <= 0.0446
+    elseif lat < -80
+        is_polar = true
+        is_psr = rand() <= 0.0557
+    else
+        is_polar = false
+        is_mare = rand() <= 0.1649
+    end
+
+    # Draw a random spacecraft location from Orbit
+    λsc, φsc, altsc = sample_orbit(orbit, 1)
+    if altitude < 0km 
+        altitude = altsc * 1km
+    end
+    θmax = -horizon_angle(altitude)
+
+    # Convert spacecraft location to 3D spherical coords
+    SC = spherical_to_cartesian(deg2rad(φsc+90), deg2rad(λsc+180), Rmoon + altitude)
+
+    # Calculate the total central angle between the SC and the event
+    Δσ = atan(norm(SC × surface), (SC ⋅ surface))
+
+    # if this point is not within the horizon of the SC, then we can't see it.
+    abs(Δσ) > θmax && return (NotVisible, NotVisible)
+
+    # and throw for a random incident cosmic ray direction in cos^2
+    direction = random_direction(surface / norm(surface))
+
+    # if it's an upgoing cosmic ray, reject the trial
+    if surface ⋅ direction > 0km
+        println("Got an upgoing cosmic ray trial! This should never happen.")
+        return Upgoing, Upgoing
+    end
+
+    # we now step the cosmic ray into the regolith until Xmax
+    Xmax = propagate_to_Xmax(surface, direction, Ecr, densitymodel)
+
+    # check that we didn't "leave" the regolith due to a highly
+    # inclined shower being "too" long.
+    if norm(Xmax) > Rmoon
+        return NoXmax, NoXmax
+    end
+
+    # find the depth of the cosmic ray
+    depth = norm(surface) - norm(Xmax)
+
+    # check that Xmax occured before the ice layer
+    if depth > ice_depth
+        return XmaxAfterIce, XmaxAfterIce
+    end
+
+    # compute the solution for the "direct" RF
+    direct = compute_direct(geometrymodel, Ecr, surface, direction, SC, Xmax;
+        indexmodel=indexmodel,
+        fieldmodel=fieldmodel,
+        slopemodel=slopemodel,
+        roughnessmodel=roughnessmodel,
+        densitymodel=densitymodel,
+        divergencemodel=divergencemodel,
+        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare,
+        kwargs...)
+
+    # compute the solution for the "reflected" RF
+    reflected = compute_reflected(geometrymodel, Ecr, surface, direction, SC, Xmax, ice_depth;
+        indexmodel=indexmodel,
+        fieldmodel=fieldmodel,
+        slopemodel=slopemodel,
+        roughnessmodel=roughnessmodel,
+        iceroughness=iceroughness,
+        densitymodel=densitymodel,
+        divergencemodel=divergencemodel,
+        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare,
+        kwargs...)
+
+    return direct, reflected
+end
+
+"""
 Compute the 'direct' RF solution using the scalar geometry.
 """
 function compute_direct(::ScalarGeometry,
@@ -266,6 +385,7 @@ function compute_direct(::ScalarGeometry,
     slopemodel=NoSlope(),
     roughnessmodel=NoRoughness(),
     ν_min=150MHz, ν_max=600MHz,
+    is_polar=true, is_psr=true, is_mare=false,
     kwargs...)
 
     # println("Origin: $(origin)")
@@ -414,6 +534,7 @@ function compute_reflected(::ScalarGeometry,
     roughnessmodel=NoRoughness(),
     iceroughness=NoIceRoughness(),
     ν_min=150MHz, ν_max=600MHz,
+    is_polar=true, is_psr=true, is_mare=false,
     kwargs...)
 
     # calculate the normalized vector to the point on the surface

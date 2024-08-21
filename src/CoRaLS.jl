@@ -81,6 +81,9 @@ export acceptance, differential_spectrum, trials_passed
 # exports from plots.jl
 export plot_differential_spectrum, plot_offaxis_angle, plot_acceptance
 
+# exports from orbit.jl
+export Orbit, parse_orbit, sample_orbit
+
 # import all of our code
 include("constants.jl")
 include("utils.jl")

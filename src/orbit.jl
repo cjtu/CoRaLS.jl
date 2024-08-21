@@ -22,6 +22,8 @@ end
     parse_orbit(fname)
 
 Parse orbital info from a CSV file with columns: time, longitude, latitude, altitude.
+
+Time column is parsed with datetime format given in fmt.
 """
 function parse_orbit(fname="lro_orbit_1yr_2010.csv", fmt=dateformat"yyyy-mm-dd HH:MM:SS.ssssss \UTC")
     Data = readdlm("$(@__DIR__)/../data/$(fname)", ',', skipstart=1)
