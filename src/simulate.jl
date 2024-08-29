@@ -96,6 +96,7 @@ mutable struct Direct <: AbstractSignal
     is_polar::Bool # target is in polar region
     is_psr::Bool # target is psr
     is_mare::Bool # target is mare
+    is_equator::Bool # target is within 10 degree belt around equator (5S,5N)
     triggered::Bool # did this event trigger
 end
 
@@ -132,6 +133,7 @@ mutable struct Reflected <: AbstractSignal
     is_polar::Bool # target is in polar region
     is_psr::Bool # target is psr
     is_mare::Bool # target is mare
+    is_equator::Bool # target is within 10 degree belt around equator (5S,5N)
     triggered::Bool # did this event trigger
 end
 
@@ -261,9 +263,9 @@ function throw_cosmicray(Ecr;
 end
 
 """
-Simulate a cosmic ray trial sampling the spacecraft location from an Orbit.
+Simulate a cosmic ray trial given SC position [lon, lat, alt].
 """
-function throw_cosmicray(Ecr, orbit;
+function throw_cosmicray(Ecr, SCvec;
     ice_depth=5m, altitude=-1.0km,
     geometrymodel=ScalarGeometry(),
     indexmodel=StrangwayIndex(), fieldmodel=ARW(),
@@ -280,9 +282,11 @@ function throw_cosmicray(Ecr, orbit;
     surface = Rmoon * xyz / norm(xyz)
 
     # Draw a random spacecraft location from Orbit
-    # If altitude is supplied
-    λsc, φsc, altsc = sample_orbit(orbit, 1)
-    if altitude < 0km 
+    # If constant altitude is supplied, overwrite value from SC
+    λsc, φsc, altsc = SCvec
+    if altitude > 0km 
+        altitude = altitude
+    else
         altitude = altsc * 1km
     end
     θmax = -horizon_angle(altitude)
@@ -337,7 +341,7 @@ function throw_cosmicray(Ecr, orbit;
     # TODO: Passing these to direct/reflected seems bad, handling multiple states
     #  when the source truth is the sc vector. but calculated it here since direct
     #  and reflected will have different branches based on if eq mare vs polar psr
-    is_psr = false; is_polar = false; is_mare = false;
+    is_psr = false; is_polar = false; is_mare = false; is_equator = false;
     if φ > 80
         is_polar = true
         is_psr = rand() <= 0.0446
@@ -346,6 +350,7 @@ function throw_cosmicray(Ecr, orbit;
         is_psr = rand() <= 0.0557
     else
         is_mare = rand() <= 0.1649
+        is_equator = (φ > -5) && (φ < 5)
     end
 
     # compute the solution for the "direct" RF
@@ -356,7 +361,7 @@ function throw_cosmicray(Ecr, orbit;
         roughnessmodel=roughnessmodel,
         densitymodel=densitymodel,
         divergencemodel=divergencemodel,
-        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare,
+        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare, is_equator=is_equator,
         kwargs...)
 
     # compute the solution for the "reflected" RF
@@ -368,7 +373,7 @@ function throw_cosmicray(Ecr, orbit;
         iceroughness=iceroughness,
         densitymodel=densitymodel,
         divergencemodel=divergencemodel,
-        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare,
+        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare, is_equator=is_equator,
         kwargs...)
 
     return direct, reflected
@@ -386,7 +391,7 @@ function compute_direct(::ScalarGeometry,
     slopemodel=NoSlope(),
     roughnessmodel=NoRoughness(),
     ν_min=150MHz, ν_max=600MHz,
-    is_polar=true, is_psr=true, is_mare=false,
+    is_polar=true, is_psr=true, is_mare=false, is_equator=false,
     kwargs...)
 
     # println("Origin: $(origin)")
@@ -514,7 +519,7 @@ function compute_direct(::ScalarGeometry,
     # and construct and return the signal
     return Direct(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
         poltr, ν_min, 10MHz, ν_max, E .|> (μV / m / MHz), rad2deg(θpol), rad2deg(el), rad2deg(ψ),
-        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, is_polar, is_psr, is_mare, false)
+        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, is_polar, is_psr, is_mare, is_equator, false)
 
 end
 
@@ -535,7 +540,7 @@ function compute_reflected(::ScalarGeometry,
     roughnessmodel=NoRoughness(),
     iceroughness=NoIceRoughness(),
     ν_min=150MHz, ν_max=600MHz,
-    is_polar=true, is_psr=true, is_mare=false,
+    is_polar=true, is_psr=true, is_mare=false, is_equator=false,
     kwargs...)
 
     # calculate the normalized vector to the point on the surface
@@ -731,7 +736,7 @@ function compute_reflected(::ScalarGeometry,
         ν_min, 10MHz, ν_max,
         E .|> (μV / m / MHz), polsub, rad2deg(θpol), rad2deg(θpolsub), rad2deg(el), rad2deg(ψ),
         depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), rad2deg(θ_ice),
-        tpar, tperp, rpar, rperp, subpar, subperp, is_polar, is_psr, is_mare, false)
+        tpar, tperp, rpar, rperp, subpar, subperp, is_polar, is_psr, is_mare, is_equator, false)
 
 end
 

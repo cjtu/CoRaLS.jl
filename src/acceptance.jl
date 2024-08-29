@@ -27,6 +27,8 @@ struct Acceptance
     direct
     rAΩ
     reflected
+    failed_direct
+    failed_reflected
 end
 
 """
@@ -45,14 +47,11 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
     # create a StructArray for out Detection type
     # this is a vector with the length of the number of threads
     # we concat them together at the end to make a single collection of events
-    devents = Vector{StructArray{Direct}}()
-    revents = Vector{StructArray{Reflected}}()
-
-    # setup the struct arrays for each thread
-    for i in 1:Threads.nthreads()
-        push!(devents, StructArray{Direct}(undef, 0))
-        push!(revents, StructArray{Reflected}(undef, 0))
-    end
+    nthreads = Threads.nthreads()
+    devents = fill(StructArray{Direct}(undef, 0), nthreads)
+    revents = fill(StructArray{Reflected}(undef, 0), nthreads)
+    fdevents = fill(CoRaLS.TrialFailed[], nthreads)
+    frevents = fill(CoRaLS.TrialFailed[], nthreads)
 
     @info "Calculating acceptance using $(ntrials) trials across $(nbins) bins..."
 
@@ -103,12 +102,17 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
         # sample the Auger spectrum for UHECR energies within this bin
         Ecr = [sample_auger(energies[bin], energies[bin+1]) for i = 1:ntrials]
 
+        # sample orbital positions from file
+        if orbit
+            SCs = sample_orbit(parse_orbit(), ntrials)
+        end
+
         # loop over the number of trials in this bin
         Threads.@threads for i = 1:ntrials
 
             # throw a random cosmic ray trial and get the signal at the payload
             if orbit
-                direct, reflected = throw_cosmicray(Ecr[i], parse_orbit(); altitude=altitude, kwargs...)
+                direct, reflected = throw_cosmicray(Ecr[i], SCs[i, :]; altitude=altitude, kwargs...)
             else
                 direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, kwargs...)
             end
@@ -120,6 +124,8 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
                     Threads.atomic_add!(dpassed, 1)
                 end
                 save_events && push!(devents[Threads.threadid()], direct)
+            else
+                save_events && push!(fdevents[Threads.threadid()], direct)
             end
 
             # check for a reflected trigger
@@ -129,6 +135,8 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
                     Threads.atomic_add!(rpassed, 1)
                 end
                 save_events && push!(revents[Threads.threadid()], reflected)
+            else
+                save_events && push!(frevents[Threads.threadid()], reflected)
             end
 
         end # end loop over trials
@@ -142,8 +150,10 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
     # and combine the event structs across all threads
     devents = vcat(devents...)
     revents = vcat(revents...)
+    fdevents = vcat(fdevents...)
+    frevents = vcat(frevents...)
 
-    return Acceptance(ntrials, altitude, AΩ, energies, dAΩ, devents, rAΩ, revents)
+    return Acceptance(ntrials, altitude, AΩ, energies, dAΩ, devents, rAΩ, revents, fdevents, frevents)
 
 end
 
