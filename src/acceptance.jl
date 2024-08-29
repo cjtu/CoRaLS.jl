@@ -39,6 +39,7 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
     altitude=20.0km,
     trigger=magnitude_trigger(100μV / m),
     save_events=true,
+    orbit=false,
     kwargs...)
 
     # create a StructArray for out Detection type
@@ -55,30 +56,35 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
 
     @info "Calculating acceptance using $(ntrials) trials across $(nbins) bins..."
 
+    if orbit
+        # the maximum total acceptance is πA km^2 steradians (TODO: see paper X, equation Y)
+        A = 4 * pi * Rmoon^2
+        AΩ = pi * 1sr * A * ones(nbins)  # TODO: factor of 2 or 0.5 ?
+    else
     # we define the lunar poles as everything within 10 degrees
-    θpole = deg2rad(10.0)
+        θpole = deg2rad(10.0)
 
-    # the distance to the horizon from the SC's altitude
-    θmax = -horizon_angle(altitude)
+        # the distance to the horizon from the SC's altitude
+        θmax = -horizon_angle(altitude)
 
-    # we sample events only in the lunar poles
-    A = spherical_cap_area(θpole, Rmoon)
+        # we sample events only in the lunar poles
+        A = spherical_cap_area(θpole, Rmoon)
 
-    # the maximum total acceptance is πA km^2 steradians
-    # however the spacecraft is in the *opposite* hemisphere from the
-    # cosmic ray trial 50% of the time, so we pick up another factor of 0.5
-    # since we are only simulating one "combined" pole (to be more efficient).
-    AΩ = 0.5 * π * sr * A * ones(nbins)
+        # the maximum total acceptance is πA km^2 steradians
+        # however the spacecraft is in the *opposite* hemisphere from the
+        # cosmic ray trial 50% of the time, so we pick up another factor of 0.5
+        # since we are only simulating one "combined" pole (to be more efficient).
+        AΩ = 0.5 * π * sr * A * ones(nbins)
 
-    # fold in the fraction of the polar caps that have PSRs
-    # assuming 30_000 km^2 of total PSR regions
-    AΩ *= 30_000km^2 / spherical_cap_area(θpole, Rmoon)  # TODO: 30000 is both poles, divinding by only 1 sph cap 
+        # fold in the fraction of the polar caps that have PSRs
+        # assuming 30_000 km^2 of total PSR regions
+        AΩ *= 30_000km^2 / spherical_cap_area(θpole, Rmoon)  # TODO: 30000 is both poles, divinding by only 1 sph cap 
 
-    # and account for the fraction of a single hemisphere of the CRs
-    # orbit that is visible from the poles, since we only simulate these
-    # "visible" SC angles
-    AΩ *= (θpole + θmax) / (π / 2.0)  # TODO:rederive this - max area visible by payload
-
+        # and account for the fraction of a single hemisphere of the CRs
+        # orbit that is visible from the poles, since we only simulate these
+        # "visible" SC angles
+        AΩ *= (θpole + θmax) / (π / 2.0)  # TODO:rederive this - max area visible by payload
+    end
     # construct the bins we sample from in log-space
     energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
 
@@ -101,7 +107,11 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
         Threads.@threads for i = 1:ntrials
 
             # throw a random cosmic ray trial and get the signal at the payload
-            direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, kwargs...)
+            if orbit
+                direct, reflected = throw_cosmicray(Ecr[i], parse_orbit(); altitude=altitude, kwargs...)
+            else
+                direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, kwargs...)
+            end
 
             # check for a direct trigger
             if !(direct isa TrialFailed)

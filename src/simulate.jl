@@ -279,33 +279,8 @@ function throw_cosmicray(Ecr, orbit;
     xyz = randn(3); 
     surface = Rmoon * xyz / norm(xyz)
 
-    # Determine if point is N polar PSR, S polar PSR, highland, mare
-    # Simple estimate based on illumination above ~80deg (Mazarico 2011, Icarus)
-    # and total mare area (Nelson et al. 2016)
-    #  Polar cap area 80-90deg: 2.8814e5 km^2
-    #  Npole PSR area (>1 km^2): 1.2866e4 km^2 or 4.46% of Npole
-    #  Spole PSR area (>1 km^2): 1.6055e4 km^2 or 5.57% of Spole
-    #  Equatorial area (Amoon - 2*PolarCapArea): 3.7356e7 km^2
-    #  Maria area: 6.15e6 km^2 or 16.49% of equatorial region
-    #  Highlands: the non PSR and non maria area 83.7%
-    theta, phi, r = cartesian_to_spherical(surface...); 
-    φ, λ = rad2deg.([theta-pi/2, phi])  # lat (-90, 90), lon (-180, 180)
-
-    # TODO: Passing these to direct/reflected seems bad, handling multiple states
-    #  when the source truth is the sc vector. but calculated it here since direct
-    #  and reflected will have different branches based on if eq mare vs polar psr
-    if lat > 80
-        is_polar = true
-        is_psr = rand() <= 0.0446
-    elseif lat < -80
-        is_polar = true
-        is_psr = rand() <= 0.0557
-    else
-        is_polar = false
-        is_mare = rand() <= 0.1649
-    end
-
     # Draw a random spacecraft location from Orbit
+    # If altitude is supplied
     λsc, φsc, altsc = sample_orbit(orbit, 1)
     if altitude < 0km 
         altitude = altsc * 1km
@@ -345,6 +320,32 @@ function throw_cosmicray(Ecr, orbit;
     # check that Xmax occured before the ice layer
     if depth > ice_depth
         return XmaxAfterIce, XmaxAfterIce
+    end
+
+    # Determine if point is N polar PSR, S polar PSR, highland, mare
+    # Simple estimate based on illumination above ~80deg (Mazarico 2011, Icarus)
+    # and total mare area (Nelson et al. 2016)
+    #  Polar cap area 80-90deg: 2.8814e5 km^2
+    #  Npole PSR area (>1 km^2): 1.2866e4 km^2 or 4.46% of Npole
+    #  Spole PSR area (>1 km^2): 1.6055e4 km^2 or 5.57% of Spole
+    #  Equatorial area (Amoon - 2*PolarCapArea): 3.7356e7 km^2
+    #  Maria area: 6.15e6 km^2 or 16.49% of equatorial region
+    #  Highlands: the non PSR and non maria area 83.7%
+    theta, phi, r = cartesian_to_spherical(surface...); 
+    φ, λ = rad2deg.([theta-pi/2, phi])  # lat (-90, 90), lon (-180, 180)
+
+    # TODO: Passing these to direct/reflected seems bad, handling multiple states
+    #  when the source truth is the sc vector. but calculated it here since direct
+    #  and reflected will have different branches based on if eq mare vs polar psr
+    is_psr = false; is_polar = false; is_mare = false;
+    if φ > 80
+        is_polar = true
+        is_psr = rand() <= 0.0446
+    elseif φ < -80
+        is_polar = true
+        is_psr = rand() <= 0.0557
+    else
+        is_mare = rand() <= 0.1649
     end
 
     # compute the solution for the "direct" RF
@@ -513,7 +514,7 @@ function compute_direct(::ScalarGeometry,
     # and construct and return the signal
     return Direct(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
         poltr, ν_min, 10MHz, ν_max, E .|> (μV / m / MHz), rad2deg(θpol), rad2deg(el), rad2deg(ψ),
-        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, false)
+        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, is_polar, is_psr, is_mare, false)
 
 end
 
@@ -730,7 +731,7 @@ function compute_reflected(::ScalarGeometry,
         ν_min, 10MHz, ν_max,
         E .|> (μV / m / MHz), polsub, rad2deg(θpol), rad2deg(θpolsub), rad2deg(el), rad2deg(ψ),
         depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), rad2deg(θ_ice),
-        tpar, tperp, rpar, rperp, subpar, subperp, false)
+        tpar, tperp, rpar, rperp, subpar, subperp, is_polar, is_psr, is_mare, false)
 
 end
 
