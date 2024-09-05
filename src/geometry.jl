@@ -13,6 +13,21 @@ Note: PG's MC had 1736.0km - TODO check.
 const Rmoon = 1737.4km
 
 """
+    random_point_on_moon()
+
+Return random latitude (-90, 90) and longitude (-180, 180) on the Moon.
+
+Samples gaussian in cartesian x,y,z, then divides by hypotenuse to put on unit 
+sphere, then multiplies by Rmoon to place on the lunar surface, finally
+converts to spherical coordinates and translates colatitude to latitude.
+"""
+function random_point_on_moon()
+    xyz = randn(3) 
+    surface = Rmoon * xyz / norm(xyz)
+    return surface
+end
+
+"""
     random_north_pole_point()
 
 Draw a random point on the North lunar pole
@@ -85,6 +100,15 @@ function cartesian_to_spherical(x, y, z)
     return SVector{3}([acos(z / r),
         atan(y, x),
         r])
+end
+
+"""
+Convert a cartesian point (x, y, z) into a lat (-90, 90), lon (-180, 180) point.
+"""
+function cartesian_to_latlon(x, y, z)
+    theta, phi, _ = cartesian_to_spherical(x, y, z)
+    φ, λ = rad2deg.([theta-pi/2, phi])  # lat (-90, 90), lon (-180, 180)
+    return φ, λ
 end
 
 """

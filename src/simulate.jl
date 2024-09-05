@@ -93,10 +93,6 @@ mutable struct Direct <: AbstractSignal
     θ_emit::Float64 # the zenith angle of the emitted ray (deg)
     tpar::Float64 # the parallel Fresnel transmission coefficient
     tperp::Float64 # the perpendicular Fresnel transmission coefficient
-    is_polar::Bool # target is in polar region
-    is_psr::Bool # target is psr
-    is_mare::Bool # target is mare
-    is_equator::Bool # target is within 10 degree belt around equator (5S,5N)
     triggered::Bool # did this event trigger
 end
 
@@ -130,10 +126,6 @@ mutable struct Reflected <: AbstractSignal
     rperp::Float64 # the perpendicular Fresnel reflection coefficient
     subpar::Float64 # the parallel Fresnel coefficient from the subsurface refl.
     subperp::Float64 # the perpendicular Fresnel coefficient from the subsurface refl.
-    is_polar::Bool # target is in polar region
-    is_psr::Bool # target is psr
-    is_mare::Bool # target is mare
-    is_equator::Bool # target is within 10 degree belt around equator (5S,5N)
     triggered::Bool # did this event trigger
 end
 
@@ -143,6 +135,63 @@ Simplifiy the printing of Signal structs.
 Base.show(io::IO, event::Direct) = print(io, "DirectEvent($(event.Ecr), $(event.θ_el))")
 Base.show(io::IO, event::Reflected) = print(io, "ReflectedEvent($(event.Ecr), $(event.θ_el))")
 
+"""
+Target types should implement area attr
+
+# Area estimates based on illumination above ~80deg (Mazarico 2011, Icarus)
+#  and total mare area (Nelson et al. 2016)
+#  Polar cap area 80-90deg: 2.8814e5 km^2
+#  Npole PSR area (>1 km^2): 1.2866e4 km^2 or 4.46% of Npole
+#  Spole PSR area (>1 km^2): 1.6055e4 km^2 or 5.57% of Spole
+#  Equatorial area (Amoon - 2*PolarCapArea): 3.7356e7 km^2
+#  Maria area: 6.15e6 km^2 or 16.49% of equatorial region
+#  Highlands: the non PSR and non maria area 83.7%
+"""
+abstract type Target end
+abstract type Terrain <: Target end  # Must implement prob
+abstract type Polar <: Target end
+abstract type PSR <: Polar end  # Must implement prob
+
+mutable struct Moon <: Target 
+    area :: typeof(1.0km^2)
+    Moon() = new(4 * pi * Rmoon^2)
+end
+
+mutable struct Poles <: Polar 
+    area :: typeof(1.0km^2)
+    Poles() = new(2*spherical_cap_area(deg2rad(10)))
+end
+
+mutable struct NorthPolePSR <: PSR 
+    area :: typeof(1.0km^2)
+    prob :: Float32
+    NorthPolePSR() = new(1.2866e4km^2, 1.2866e4km^2/spherical_cap_area(deg2rad(10)))  # prob=4.46% of Npole
+end
+
+mutable struct SouthPolePSR <: PSR 
+    area :: typeof(1.0km^2)
+    prob :: Float32
+    SouthPolePSR() = new(1.6055e4km^2, 1.6055e4km^2/spherical_cap_area(deg2rad(10)))  # prob=5.57% of Spole
+end
+
+mutable struct AllPSR <: PSR 
+    area :: typeof(1.0km^2)
+    prob :: Float32
+    AllPSR() = new(2.8921e4km^2, 2.8921e4km^2/(2*spherical_cap_area(deg2rad(10))))  # prob=5.02% of both poles
+end
+
+mutable struct Mare <: Terrain
+    area :: typeof(1.0km^2)
+    prob :: Float32
+    Mare() = new(6.15e6km^2, 0.1649)  # 16.49% of equatorial (non-polar region)
+end
+
+mutable struct Highland <: Terrain
+    area :: typeof(1.0km^2)
+    prob :: Float32
+    Highland() = new(Moon().area - Mare().area, 0.837)  # 83.7% of Moon
+end
+
 
 """
 Simulate a single cosmic ray trial with a given energy.
@@ -150,16 +199,7 @@ Simulate a single cosmic ray trial with a given energy.
 This calculates the field at the payload for the direct and reflected emission,
 (if they exist), and does not check fo a trigger condition.
 """
-function throw_cosmicray(Ecr;
-    ice_depth=5m, altitude=20.0km,
-    geometrymodel=ScalarGeometry(),
-    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
-    divergencemodel=MixedFieldDivergence(),
-    densitymodel=StrangwayDensity(),
-    slopemodel=GaussianSlope(7.6),
-    roughnessmodel=GaussianRoughness(2.0),
-    iceroughness=GaussianIceRoughness(2.0cm),
-    kwargs...)
+function throw_cosmicray(Ecr; altitude=20.0km, kwargs...)
 
     # get the maximum angle that we sample CR impact points from
     θmax = -horizon_angle(altitude)
@@ -221,74 +261,47 @@ function throw_cosmicray(Ecr;
         return Upgoing, Upgoing
     end
 
-    # we now step the cosmic ray into the regolith until Xmax
-    Xmax = propagate_to_Xmax(surface, direction, Ecr, densitymodel)
+    return propagate_cosmicray(Ecr, surface, SC; kwargs)
+end
 
-    # check that we didn't "leave" the regolith due to a highly
-    # inclined shower being "too" long.
-    if norm(Xmax) > Rmoon
-        return NoXmax, NoXmax
+"""
+Simulate a cosmic ray assuming a perfectly circular polar spacecraft orbit.
+"""
+function throw_cosmicray(Ecr, altitude::typeof(1.0km); target::PSR, kwargs...)
+    # Get cosmic ray location 
+    surface = random_point_on_moon()
+
+    # Get random position of SC (uniform in theta)
+    θsc = rand(Uniform(0, pi))
+    SC = spherical_to_cartesian(θsc, rand(Uniform(0, 2π)), Rmoon + altitude)
+    θmax = -horizon_angle(altitude)
+
+    # Calculate the total central angle between the SC and the event
+    Δσ = atan(norm(SC × surface), (SC ⋅ surface))
+
+    # if this point is not within the horizon of the SC, then we can't see it.
+    abs(Δσ) > θmax && return (NotVisible, NotVisible)
+    
+    # Reject if not in PSR
+    φ, λ = cartesian_to_latlon(surface...)
+    if abs(φ) < 80
+        return (NotPolar, NotPolar)
     end
-
-    # find the depth of the cosmic ray
-    depth = norm(surface) - norm(Xmax)
-
-    # check that Xmax occured before the ice layer
-    if depth > ice_depth
-        return XmaxAfterIce, XmaxAfterIce
+    if rand() > target.prob 
+        return (NotPSR, NotPSR)
     end
-
-    # compute the solution for the "direct" RF
-    direct = compute_direct(geometrymodel, Ecr, surface, direction, SC, Xmax;
-        indexmodel=indexmodel,
-        fieldmodel=fieldmodel,
-        slopemodel=slopemodel,
-        roughnessmodel=roughnessmodel,
-        densitymodel=densitymodel,
-        divergencemodel=divergencemodel,
-        kwargs...)
-
-    # compute the solution for the "reflected" RF
-    reflected = compute_reflected(geometrymodel, Ecr, surface, direction, SC, Xmax, ice_depth;
-        indexmodel=indexmodel,
-        fieldmodel=fieldmodel,
-        slopemodel=slopemodel,
-        roughnessmodel=roughnessmodel,
-        iceroughness=iceroughness,
-        densitymodel=densitymodel,
-        divergencemodel=divergencemodel,
-        kwargs...)
-
-    return direct, reflected
+    return propagate_cosmicray(Ecr, surface, SC; kwargs)
 end
 
 """
 Simulate a cosmic ray trial given SC position [lon, lat, alt].
 """
-function throw_cosmicray(Ecr, SCvec;
-    ice_depth=5m, altitude=-1.0km,
-    geometrymodel=ScalarGeometry(),
-    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
-    divergencemodel=MixedFieldDivergence(),
-    densitymodel=StrangwayDensity(),
-    slopemodel=GaussianSlope(7.6),
-    roughnessmodel=GaussianRoughness(2.0),
-    iceroughness=GaussianIceRoughness(2.0cm),
-    kwargs...)
+function throw_cosmicray(Ecr, SCvec; target::PSR, kwargs...)
+    surface = random_point_on_moon()
 
-    # Sample random point on Moon for CR entry
-    # Sample gaussian in x,y,z and divide by hypot to put on unit sphere
-    xyz = randn(3); 
-    surface = Rmoon * xyz / norm(xyz)
-
-    # Draw a random spacecraft location from Orbit
-    # If constant altitude is supplied, overwrite value from SC
-    λsc, φsc, altsc = SCvec
-    if altitude > 0km 
-        altitude = altitude
-    else
-        altitude = altsc * 1km
-    end
+    # Get local horizon of spacecraft
+    λsc, φsc, altitude = SCvec
+    altitude = altitude * 1km
     θmax = -horizon_angle(altitude)
 
     # Convert spacecraft location to 3D spherical coords
@@ -299,6 +312,31 @@ function throw_cosmicray(Ecr, SCvec;
 
     # if this point is not within the horizon of the SC, then we can't see it.
     abs(Δσ) > θmax && return (NotVisible, NotVisible)
+    
+    φ, λ = cartesian_to_latlon(surface...)
+    if abs(φ) < 80
+        return (NotPolar, NotPolar)
+    end
+    if rand() > target.prob 
+        return (NotPSR, NotPSR)
+    end
+    return propagate_cosmicray(Ecr, surface, SC; kwargs)
+end
+
+
+"""
+Propagate cosmic ray into surface and compute direct and reflected RF.
+"""
+function propagate_cosmicray(Ecr, surface, SC;
+    ice_depth=5m,
+    geometrymodel=ScalarGeometry(),
+    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    densitymodel=StrangwayDensity(),
+    slopemodel=GaussianSlope(7.6),
+    roughnessmodel=GaussianRoughness(2.0),
+    iceroughness=GaussianIceRoughness(2.0cm),
+    kwargs...)
 
     # and throw for a random incident cosmic ray direction in cos^2
     direction = random_direction(surface / norm(surface))
@@ -308,7 +346,6 @@ function throw_cosmicray(Ecr, SCvec;
         println("Got an upgoing cosmic ray trial! This should never happen.")
         return Upgoing, Upgoing
     end
-
     # we now step the cosmic ray into the regolith until Xmax
     Xmax = propagate_to_Xmax(surface, direction, Ecr, densitymodel)
 
@@ -326,33 +363,6 @@ function throw_cosmicray(Ecr, SCvec;
         return XmaxAfterIce, XmaxAfterIce
     end
 
-    # Determine if point is N polar PSR, S polar PSR, highland, mare
-    # Simple estimate based on illumination above ~80deg (Mazarico 2011, Icarus)
-    # and total mare area (Nelson et al. 2016)
-    #  Polar cap area 80-90deg: 2.8814e5 km^2
-    #  Npole PSR area (>1 km^2): 1.2866e4 km^2 or 4.46% of Npole
-    #  Spole PSR area (>1 km^2): 1.6055e4 km^2 or 5.57% of Spole
-    #  Equatorial area (Amoon - 2*PolarCapArea): 3.7356e7 km^2
-    #  Maria area: 6.15e6 km^2 or 16.49% of equatorial region
-    #  Highlands: the non PSR and non maria area 83.7%
-    theta, phi, r = cartesian_to_spherical(surface...); 
-    φ, λ = rad2deg.([theta-pi/2, phi])  # lat (-90, 90), lon (-180, 180)
-
-    # TODO: Passing these to direct/reflected seems bad, handling multiple states
-    #  when the source truth is the sc vector. but calculated it here since direct
-    #  and reflected will have different branches based on if eq mare vs polar psr
-    is_psr = false; is_polar = false; is_mare = false; is_equator = false;
-    if φ > 80
-        is_polar = true
-        is_psr = rand() <= 0.0446
-    elseif φ < -80
-        is_polar = true
-        is_psr = rand() <= 0.0557
-    else
-        is_mare = rand() <= 0.1649
-        is_equator = (φ > -5) && (φ < 5)
-    end
-
     # compute the solution for the "direct" RF
     direct = compute_direct(geometrymodel, Ecr, surface, direction, SC, Xmax;
         indexmodel=indexmodel,
@@ -361,7 +371,6 @@ function throw_cosmicray(Ecr, SCvec;
         roughnessmodel=roughnessmodel,
         densitymodel=densitymodel,
         divergencemodel=divergencemodel,
-        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare, is_equator=is_equator,
         kwargs...)
 
     # compute the solution for the "reflected" RF
@@ -373,7 +382,6 @@ function throw_cosmicray(Ecr, SCvec;
         iceroughness=iceroughness,
         densitymodel=densitymodel,
         divergencemodel=divergencemodel,
-        is_polar=is_polar, is_psr=is_psr, is_mare=is_mare, is_equator=is_equator,
         kwargs...)
 
     return direct, reflected
@@ -391,7 +399,6 @@ function compute_direct(::ScalarGeometry,
     slopemodel=NoSlope(),
     roughnessmodel=NoRoughness(),
     ν_min=150MHz, ν_max=600MHz,
-    is_polar=true, is_psr=true, is_mare=false, is_equator=false,
     kwargs...)
 
     # println("Origin: $(origin)")
@@ -519,7 +526,7 @@ function compute_direct(::ScalarGeometry,
     # and construct and return the signal
     return Direct(Ecr, rad2deg(θ), rad2deg(ϕ), rad2deg(zenith),
         poltr, ν_min, 10MHz, ν_max, E .|> (μV / m / MHz), rad2deg(θpol), rad2deg(el), rad2deg(ψ),
-        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, is_polar, is_psr, is_mare, is_equator, false)
+        depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), tpar, tperp, false)
 
 end
 
@@ -540,7 +547,6 @@ function compute_reflected(::ScalarGeometry,
     roughnessmodel=NoRoughness(),
     iceroughness=NoIceRoughness(),
     ν_min=150MHz, ν_max=600MHz,
-    is_polar=true, is_psr=true, is_mare=false, is_equator=false,
     kwargs...)
 
     # calculate the normalized vector to the point on the surface
@@ -736,7 +742,7 @@ function compute_reflected(::ScalarGeometry,
         ν_min, 10MHz, ν_max,
         E .|> (μV / m / MHz), polsub, rad2deg(θpol), rad2deg(θpolsub), rad2deg(el), rad2deg(ψ),
         depth, Drego, Dvacuum, rad2deg(θ_i), rad2deg(θ_emit), rad2deg(θ_ice),
-        tpar, tperp, rpar, rperp, subpar, subperp, is_polar, is_psr, is_mare, is_equator, false)
+        tpar, tperp, rpar, rperp, subpar, subperp, false)
 
 end
 

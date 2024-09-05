@@ -33,7 +33,7 @@ Typical usage of the module involves importing it and then utilizing its various
 """
 
 # exports from geometry.jl
-export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area
+export Rmoon, random_point_on_moon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area
 
 # exports from spectrum.jl
 export auger_spectrum_2021, auger_spectrum_2020, auger_spectrum, yr, cr_spectrum
@@ -67,7 +67,8 @@ export regolith_field, JAM, FORTE, GaisserHillasProfile, GaussianProfile, ARW
 export LPDA, ANITA
 
 # exports from simulate.jl
-export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry
+export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry, TrialFailed
+export Moon, Poles, NorthPolePSR, SouthPolePSR, AllPSR, Mare, Highland
 
 # exports from trigger.jl
 export magnitude_trigger, gaussian_trigger, rician_trigger

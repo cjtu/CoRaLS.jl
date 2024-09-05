@@ -42,6 +42,7 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
     trigger=magnitude_trigger(100μV / m),
     save_events=true,
     orbit=false,
+    target=AllPSR(),
     kwargs...)
 
     # create a StructArray for out Detection type
@@ -57,8 +58,8 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
 
     if orbit
         # the maximum total acceptance is πA km^2 steradians (TODO: see paper X, equation Y)
-        A = 4 * pi * Rmoon^2
-        AΩ = pi * 1sr * A * ones(nbins)  # TODO: factor of 2 or 0.5 ?
+        A = Moon().area  # [km^2] sampling events over whole Moon
+        AΩ = π * sr * A * ones(nbins)
     else
     # we define the lunar poles as everything within 10 degrees
         θpole = deg2rad(10.0)
@@ -111,10 +112,12 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
         Threads.@threads for i = 1:ntrials
 
             # throw a random cosmic ray trial and get the signal at the payload
-            if orbit
-                direct, reflected = throw_cosmicray(Ecr[i], SCs[i, :]; altitude=altitude, kwargs...)
+            if orbit && altitude <= 0km
+                direct, reflected = throw_cosmicray(Ecr[i], SCs[i, :]; target=target, kwargs...)
+            elseif orbit && altitude > 0km
+                direct, reflected = throw_cosmicray(Ecr[i], altitude; target=target, kwargs...)
             else
-                direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, kwargs...)
+                direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, target=target, kwargs...)
             end
 
             # check for a direct trigger
