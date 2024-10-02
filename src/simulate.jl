@@ -36,7 +36,7 @@ This script implements various functions and types for simulating cosmic ray eve
 """
 An enum for possible reasons why the a cosmic ray trial failed.
 """
-@enum TrialFailed Upgoing = 0 TIR = 1 XmaxAfterIce = 2 NoXmax = 3 NotPSR = 4 NotVisible = 5 NotPolar = 6
+@enum TrialFailed TIR = 1 XmaxAfterIce = 2 NoXmax = 3 Upgoing = 4 NotVisible = 5 OffTarget = 6
 
 """
 An enum for possible event geometries (i.e. direct or reflected)
@@ -192,6 +192,42 @@ mutable struct Highland <: Terrain
     Highland() = new(Moon().area - Mare().area, 0.837)  # 83.7% of Moon
 end
 
+"""
+    off_target(target::Target, φ, λ)
+
+Determine if an event misses the specified target.
+
+# Arguments
+- `target::Target`: The target object.
+- `φ`: Latitude [degrees].
+- `λ`: Longitude [degrees].
+
+# Returns
+- A tuple `(OffTarget, OffTarget)` if the event misses the target, otherwise nothing.
+
+# Details
+- For PSR targets: Misses if |φ| < 80° or area probability check fails.
+- For Mare targets: Misses if |φ| > 80° or area probability check fails..
+- For Terrain targets: Misses based on area probability check fails.
+- For Polar targets: Misses if |φ| < 80°.
+
+The function assumes the existence of an `OffTarget` type or value.
+"""
+function off_target(target::Target, φ, λ)
+    if target isa PSR && (abs(φ) < 80 || rand() > target.prob)
+        return true
+    elseif target isa Mare && (abs(φ) > 80 || rand() > target.prob)
+        return true
+    elseif target isa Terrain && rand() > target.prob
+        return true
+    elseif target isa Polar && abs(φ) < 80
+        return true
+    else
+        # On target
+        return false
+    end
+end
+
 
 """
 Simulate a single cosmic ray trial with a given energy.
@@ -214,7 +250,7 @@ function throw_cosmicray(Ecr; altitude=20.0km, kwargs...)
     # within_psr = point_impacts_psr(surface)
 
     # if we didn't hit a PSR, then we throw away this trial
-    # within_psr == false && return NotPSR, NotPSR
+    # within_psr == false && return OffTarget, OffTarget
 
     # throw for a random origin point on a single hemisphere
     # surface = random_point_on_cap(θmax; r=Rmoon)
@@ -225,8 +261,8 @@ function throw_cosmicray(Ecr; altitude=20.0km, kwargs...)
     θ, _, _ = cartesian_to_spherical(surface...)
 
     # check if the point lies outside the polar cap
-    # ((θ > θpole) && θ < (π - θpole)) && return (NotPolar, NotPolar)
-    θ > θpole && return (NotPolar, NotPolar)
+    # ((θ > θpole) && θ < (π - θpole)) && return (OffTarget, OffTarget)
+    θ > θpole && return (OffTarget, OffTarget)
 
     # draw a random polar angle for the spacecraft location
     # the edges of the polar cap are visible from twice its
@@ -265,35 +301,6 @@ function throw_cosmicray(Ecr; altitude=20.0km, kwargs...)
 end
 
 """
-Simulate a cosmic ray assuming a perfectly circular polar spacecraft orbit.
-"""
-function throw_cosmicray(Ecr, altitude::typeof(1.0km); target::PSR, kwargs...)
-    # Get cosmic ray location 
-    surface = random_point_on_moon()
-
-    # Get random position of SC (uniform in theta)
-    θsc = rand(Uniform(0, pi))
-    SC = spherical_to_cartesian(θsc, rand(Uniform(0, 2π)), Rmoon + altitude)
-    θmax = -horizon_angle(altitude)
-
-    # Calculate the total central angle between the SC and the event
-    Δσ = atan(norm(SC × surface), (SC ⋅ surface))
-
-    # if this point is not within the horizon of the SC, then we can't see it.
-    abs(Δσ) > θmax && return (NotVisible, NotVisible)
-    
-    # Reject if not in PSR
-    φ, λ = cartesian_to_latlon(surface...)
-    if abs(φ) < 80
-        return (NotPolar, NotPolar)
-    end
-    if rand() > target.prob 
-        return (NotPSR, NotPSR)
-    end
-    return propagate_cosmicray(Ecr, surface, SC; kwargs)
-end
-
-"""
 Simulate a cosmic ray trial given SC position [lon, lat, alt].
 """
 function throw_cosmicray(Ecr, SCvec; target::PSR, kwargs...)
@@ -313,13 +320,10 @@ function throw_cosmicray(Ecr, SCvec; target::PSR, kwargs...)
     # if this point is not within the horizon of the SC, then we can't see it.
     abs(Δσ) > θmax && return (NotVisible, NotVisible)
     
+    # If point is not in target, reject
     φ, λ = cartesian_to_latlon(surface...)
-    if abs(φ) < 80
-        return (NotPolar, NotPolar)
-    end
-    if rand() > target.prob 
-        return (NotPSR, NotPSR)
-    end
+    off_target(target, φ, λ) && return (OffTarget, OffTarget)
+
     return propagate_cosmicray(Ecr, surface, SC; kwargs)
 end
 

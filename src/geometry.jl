@@ -13,13 +13,13 @@ Note: PG's MC had 1736.0km - TODO check.
 const Rmoon = 1737.4km
 
 """
-    random_point_on_moon()
+    random_point_on_moon([n=1])
 
-Return random latitude (-90, 90) and longitude (-180, 180) on the Moon.
+Return random latitude (-90, 90) and longitude (-180, 180) on the Moon. If n
+if given, randomly draw n samples, return n x 3 array.
 
 Samples gaussian in cartesian x,y,z, then divides by hypotenuse to put on unit 
-sphere, then multiplies by Rmoon to place on the lunar surface, finally
-converts to spherical coordinates and translates colatitude to latitude.
+sphere, then multiplies by Rmoon to place on the lunar surface.
 """
 function random_point_on_moon()
     xyz = randn(3) 

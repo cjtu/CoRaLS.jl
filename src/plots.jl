@@ -191,30 +191,33 @@ Plot the direct and reflected acceptance of the CoRaLS project.
 
 Arguments:
 - `AΩ::Acceptance`: An object containing the acceptance calculation results.
+- `filename::Union{String,Nothing}=nothing`: Optional. If provided, saves the plot to this file.
 
 This function generates a line plot illustrating the acceptance rates for both direct and reflected events across different energy levels.
 """
-function plot_acceptance(AΩ::Acceptance)
-
-    # create the figure
+function plot_acceptance(AΩ::Acceptance; filename::Union{String,Nothing}=nothing)
     fig, ax = plt.subplots(figsize=(4, 4))
 
+    # calculate x-axis values (log10 of energy in eV)
+    x_values = 18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV)
 
-    # plot the lines
-    ax.plot(18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV),
-        AΩ.dAΩ ./ km^2 ./ sr,
-        color=colordirect, label="Direct")
-    ax.plot(18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV),
-        AΩ.rAΩ ./ km^2 ./ sr,
-        color=colorrefl, label="Reflected")
+    # Plot the lines
+    ax.plot(x_values, AΩ.dAΩ ./ (km^2 * sr), color=colordirect, label="Direct")
+    ax.plot(x_values, AΩ.rAΩ ./ (km^2 * sr), color=colorrefl, label="Reflected")
 
-    # and finally pretty it up
+    # Prettify the plot
     ax.set_axisbelow(true)
     ax.grid(which="both", linestyle="dashed")
     ax.set(xlabel=L"Energy [$\log_{10}$(eV)]",
-        ylabel=L"Acceptance [km$^2$ sr]",
-        yscale="log")
+           ylabel=L"Acceptance [km$^2$ sr]",
+           yscale="log")
     ax.legend(loc="upper left")
+
+    # Save the figure if a filename is provided
+    if !isnothing(filename)
+        plt.savefig(filename, bbox_inches="tight", dpi=300)
+        @info "Figure saved to: $filename"
+    end
 
     return fig, ax
 

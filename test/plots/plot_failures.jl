@@ -19,7 +19,7 @@ function plot_failure_modes(AΩ::Acceptance)
     fig, axs = plt.subplots(2, figsize=(10, 7))
 
     # the labels and colors
-    labels = ["Upgoing", "TIR", "XmaxAfterIce", "NoXmax", "NotPSR", "NotVisible", "NotPolar"]
+    labels = ["TIR", "XmaxAfterIce", "NoXmax", "Upgoing", "NotVisible", "OffTarget"]
     cm = get_cmap(:tab20)
     colors = [cm(i) for i in 1:7]
 

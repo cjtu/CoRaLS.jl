@@ -70,6 +70,9 @@ export LPDA, ANITA
 export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry, TrialFailed
 export Moon, Poles, NorthPolePSR, SouthPolePSR, AllPSR, Mare, Highland
 
+# exports from orbit.jl
+export Orbit, CircularOrbit, parse_orbit, sample_orbit
+
 # exports from trigger.jl
 export magnitude_trigger, gaussian_trigger, rician_trigger
 
@@ -77,13 +80,11 @@ export magnitude_trigger, gaussian_trigger, rician_trigger
 export psr_area, psr_fraction
 
 # exports from acceptance.jl
-export acceptance, differential_spectrum, trials_passed
+export acceptance, acceptance_new, differential_spectrum, trials_passed
 
 # exports from plots.jl
 export plot_differential_spectrum, plot_offaxis_angle, plot_acceptance
 
-# exports from orbit.jl
-export Orbit, parse_orbit, sample_orbit
 
 # import all of our code
 include("constants.jl")
@@ -100,10 +101,11 @@ include("trigger.jl")
 include("moon.jl")
 include("raytrace.jl")
 include("simulate.jl")
+include("orbit.jl")
 include("detector.jl")
 include("acceptance.jl")
 include("surface.jl")
 include("plots.jl")
-include("orbit.jl")
+
 
 end
