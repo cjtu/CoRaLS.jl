@@ -121,7 +121,7 @@ Check if a point on the lunar surface impacts a permanently shadowed region (PSR
 function point_impacts_psr(surface)
 
     # convert this point to (theta, phi)
-    theta, phi, _ = cartesian_to_spherical(surface...)
+    theta, phi, _ = cartesian_to_spherical(surface)
 
     # calculate the latitude and longitude in this coordinate system
     lat = (π / 2.0 - theta) |> rad2deg

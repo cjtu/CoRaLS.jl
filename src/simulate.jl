@@ -36,7 +36,7 @@ This script implements various functions and types for simulating cosmic ray eve
 """
 An enum for possible reasons why the a cosmic ray trial failed.
 """
-@enum TrialFailed Upgoing = 0 TIR = 1 XmaxAfterIce = 2 NoXmax = 3 NotPSR = 4 NotVisible = 5 NotPolar = 6
+@enum TrialFailed TIR = 1 XmaxAfterIce = 2 NoXmax = 3 Upgoing = 4 NotVisible = 5 NotInRegion = 6 NotTriggered = 7
 
 """
 An enum for possible event geometries (i.e. direct or reflected)
@@ -140,18 +140,27 @@ Base.show(io::IO, event::Reflected) = print(io, "ReflectedEvent($(event.Ecr), $(
 Simulate a single cosmic ray trial with a given energy.
 
 This calculates the field at the payload for the direct and reflected emission,
-(if they exist), and does not check fo a trigger condition.
+(if they exist) and returns whether the event triggered.
 """
-function throw_cosmicray(Ecr;
-    ice_depth=5m, altitude=20.0km,
-    geometrymodel=ScalarGeometry(),
-    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
-    divergencemodel=MixedFieldDivergence(),
-    densitymodel=StrangwayDensity(),
-    slopemodel=GaussianSlope(7.6),
-    roughnessmodel=GaussianRoughness(2.0),
-    iceroughness=GaussianIceRoughness(2.0cm),
-    kwargs...)
+function throw_cosmicray(Ecr, trigger, region, spacecraft; kwargs...)
+    surface = random_point_on_sphere(Rmoon)
+    SC = get_position(spacecraft)
+    if !is_visible(surface, SC)
+        return (NotVisible, NotVisible)
+    elseif !is_in_region(surface, region)
+        return (NotInRegion, NotInRegion)
+    end
+    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs)
+end
+
+
+"""
+Simulate a single cosmic ray trial with a given energy.
+
+This calculates the field at the payload for the direct and reflected emission,
+(if they exist) and returns whether the event triggered.
+"""
+function throw_cosmicray(Ecr, trigger; altitude=20.0km, kwargs...)
 
     # get the maximum angle that we sample CR impact points from
     θmax = -horizon_angle(altitude)
@@ -166,7 +175,7 @@ function throw_cosmicray(Ecr;
     # within_psr = point_impacts_psr(surface)
 
     # if we didn't hit a PSR, then we throw away this trial
-    # within_psr == false && return NotPSR, NotPSR
+    # within_psr == false && return NotInRegion, NotInRegion
 
     # throw for a random origin point on a single hemisphere
     # surface = random_point_on_cap(θmax; r=Rmoon)
@@ -174,11 +183,11 @@ function throw_cosmicray(Ecr;
     # surface = random_point_on_cap(π; r=Rmoon)
 
     # calculate the sampled value of θ for the surface point
-    θ, _, _ = cartesian_to_spherical(surface...)
+    θ, _, _ = cartesian_to_spherical(surface)
 
     # check if the point lies outside the polar cap
-    # ((θ > θpole) && θ < (π - θpole)) && return (NotPolar, NotPolar)
-    θ > θpole && return (NotPolar, NotPolar)
+    # ((θ > θpole) && θ < (π - θpole)) && return (NotInRegion, NotInRegion)
+    θ > θpole && return (NotInRegion, NotInRegion)
 
     # draw a random polar angle for the spacecraft location
     # the edges of the polar cap are visible from twice its
@@ -203,8 +212,23 @@ function throw_cosmicray(Ecr;
     # if this point is not within the horizon of the SC, then we can't see it.
     # abs(θ - θsc) > θmax && return (NotVisible, NotVisible)
     abs(Δσ) > θmax && return (NotVisible, NotVisible)
+    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs)
+end
 
-    # and throw for a random incident cosmic ray direction in cos^2
+"""
+Propagate cosmic ray into surface and compute direct and reflected RF.
+"""
+function propagate_cosmicray(Ecr, surface, SC, trigger;
+    ice_depth=5m,
+    geometrymodel=ScalarGeometry(),
+    indexmodel=StrangwayIndex(), fieldmodel=ARW(),
+    divergencemodel=MixedFieldDivergence(),
+    densitymodel=StrangwayDensity(),
+    slopemodel=GaussianSlope(7.6),
+    roughnessmodel=GaussianRoughness(2.0),
+    iceroughness=GaussianIceRoughness(2.0cm),
+    kwargs...)
+    # throw for a random incident cosmic ray direction in cos^2
     direction = random_direction(surface / norm(surface))
 
     # if it's an upgoing cosmic ray, reject the trial
@@ -251,6 +275,21 @@ function throw_cosmicray(Ecr;
         divergencemodel=divergencemodel,
         kwargs...)
 
+    # Check if detector triggered, if not, return NotTriggered instead of the whole event struct
+    if direct isa Direct
+        if trigger(direct)
+            direct.triggered = true
+        else
+            direct = NotTriggered
+        end
+    end
+    if reflected isa Reflected
+        if trigger(reflected)
+            reflected.triggered = true
+        else
+            reflected = NotTriggered
+        end
+    end
     return direct, reflected
 end
 
@@ -287,7 +326,7 @@ function compute_direct(::ScalarGeometry,
     θ_r = acos(view ⋅ surface_normal)
 
     # since we have surface roughness, we can have TIR or shadowed geometries
-    θ_r > π / 2.0 && return TIR
+    # θ_r > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -385,7 +424,7 @@ function compute_direct(::ScalarGeometry,
     zenith = acos(normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
-    θ, ϕ, _ = cartesian_to_spherical(origin...)
+    θ, ϕ, _ = cartesian_to_spherical(origin)
 
     # calculate the below horizon angle at the payload
     el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
@@ -437,7 +476,7 @@ function compute_reflected(::ScalarGeometry,
     θ_r_true = acos(view ⋅ surface_normal)
 
     # check that with a random slope, we aren't beyond TIR
-    θ_r_true > π / 2.0 && return TIR
+    # θ_r_true > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -460,7 +499,7 @@ function compute_reflected(::ScalarGeometry,
     x2 = ice_depth * tan(θ_reg) # post-reflection
 
     # check thate we aren't violating TIR
-    (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
+    # (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
 
     # the total distance is calculated over each step
     Drego = sqrt(x1 * x1 + (ice_depth - depth) * (ice_depth - depth)) +
@@ -598,7 +637,7 @@ function compute_reflected(::ScalarGeometry,
     zenith = acos(normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
-    θ, ϕ, _ = cartesian_to_spherical(origin...)
+    θ, ϕ, _ = cartesian_to_spherical(origin)
 
     # calculate the below horizon angle at the payload
     el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)

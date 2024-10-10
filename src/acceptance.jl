@@ -21,6 +21,66 @@ A structure to hold results of acceptance calculations, including trials, altitu
 struct Acceptance
     ntrials::Int64 # per bin
     altitude
+    region::Region
+    spacecraft::Spacecraft
+    energies
+    dAΩ
+    rAΩ
+    dfailed
+    rfailed
+end
+
+
+function acceptance(ntrials::Int, nbins::Int; 
+    altitude=50.0km,
+    region::Region=PolarRegion(:south, 10),
+    spacecraft::Spacecraft=CircularOrbit(),
+    trigger=magnitude_trigger(100μV / m),
+    min_energy=0.1EeV,
+    max_energy=600.0EeV,
+    kwargs...
+    )
+    # Init arrays
+    dcount = zeros(Int, nbins)
+    rcount = zeros(Int, nbins)
+    dfailed = zeros(Int, nbins, length(instances(TrialFailed)))
+    rfailed = zeros(Int, nbins, length(instances(TrialFailed)))
+    energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
+
+    @info "Calculating acceptance using $(ntrials) trials across $(nbins) bins..."
+
+    @showprogress 1 "Simulating..." for bin = 1:nbins
+        # loop over the number of trials in this bin
+        for i = 1:ntrials
+            # throw a random cosmic ray trial and get the signal at the payload
+            direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; altitude=altitude, kwargs...)
+            # if direct isa TrialFailed
+            if direct == NotInRegion || direct == NotVisible
+                dfailed[bin, Int(direct)] += 1
+            else
+                dcount[bin] += 1
+            end
+            # if direct isa TrialFailed
+            if reflected == NotInRegion || reflected == NotVisible
+                rfailed[bin, Int(reflected)] += 1
+            else
+                rcount[bin] += 1
+            end
+        end # end ntrials loop
+    end # end nbins loop
+
+    # Compute acceptance
+    dAΩ = (dcount ./ ntrials) .* region_area(region)  # [km^2 sr]
+    rAΩ = (rcount ./ ntrials) .* region_area(region)  # [km^2 sr]
+
+    return Acceptance(ntrials, altitude, region, spacecraft, energies, dAΩ, rAΩ, dfailed, rfailed)
+    
+end
+
+
+struct OldAcceptance
+    ntrials::Int64 # per bin
+    altitude
     gAΩ
     energies
     dAΩ
@@ -30,11 +90,11 @@ struct Acceptance
 end
 
 """
-acceptance(ntrials, nbins; ...)
+old_acceptance(ntrials, nbins; ...)
 
 Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involves simulations of cosmic ray interactions, triggering conditions, and aggregating results across multiple trials and energy bins.
 """
-function acceptance(ntrials, nbins; min_energy=0.1EeV,
+function old_acceptance(ntrials, nbins; min_energy=0.1EeV,
     max_energy=600.0EeV,
     altitude=20.0km,
     trigger=magnitude_trigger(100μV / m),
@@ -101,24 +161,29 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
         Threads.@threads for i = 1:ntrials
 
             # throw a random cosmic ray trial and get the signal at the payload
-            direct, reflected = throw_cosmicray(Ecr[i]; altitude=altitude, kwargs...)
+            direct, reflected = throw_cosmicray(Ecr[i], trigger; altitude=altitude, kwargs...)
 
             # check for a direct trigger
-            if !(direct isa TrialFailed)
-                if trigger(direct)
-                    direct.triggered = true
-                    Threads.atomic_add!(dpassed, 1)
-                end
-                save_events && push!(devents[Threads.threadid()], direct)
+            # if !(direct isa TrialFailed)
+            #     if trigger(direct)
+            #         direct.triggered = true
+            #         Threads.atomic_add!(dpassed, 1)
+            #     end
+            #     save_events && push!(devents[Threads.threadid()], direct)
+            # end
+            if !(direct == NotInRegion || direct == NotVisible)
+                Threads.atomic_add!(dpassed, 1)
             end
-
             # check for a reflected trigger
-            if !(reflected isa TrialFailed)
-                if trigger(reflected)
-                    reflected.triggered = true
-                    Threads.atomic_add!(rpassed, 1)
-                end
-                save_events && push!(revents[Threads.threadid()], reflected)
+            # if !(reflected isa TrialFailed)
+            #     if trigger(reflected)
+            #         reflected.triggered = true
+            #         Threads.atomic_add!(rpassed, 1)
+            #     end
+            #     save_events && push!(revents[Threads.threadid()], reflected)
+            # end
+            if !(reflected == NotInRegion || reflected == NotVisible)
+                Threads.atomic_add!(rpassed, 1)
             end
 
         end # end loop over trials
@@ -133,7 +198,7 @@ function acceptance(ntrials, nbins; min_energy=0.1EeV,
     devents = vcat(devents...)
     revents = vcat(revents...)
 
-    return Acceptance(ntrials, altitude, AΩ, energies, dAΩ, devents, rAΩ, revents)
+    return OldAcceptance(ntrials, altitude, AΩ, energies, dAΩ, devents, rAΩ, revents)
 
 end
 
