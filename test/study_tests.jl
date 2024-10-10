@@ -717,7 +717,7 @@ function compare_beam_center()
         events = zeros(length(θs))
 
         # and loop over beam-tilt
-        @showprogress 1 "Retriggering N=$(Ns[j])..."for i = 1:length(θs)
+        @showprogress 1 "Retriggering N=$(Ns[j])..." for i = 1:length(θs)
 
             # construct a new trigger at this location
             trig = LPDA(Nant=Ns[j], Ntrig=Ntrig[j], θ0=θs[i], SNR=4.0)

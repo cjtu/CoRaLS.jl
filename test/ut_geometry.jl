@@ -36,7 +36,7 @@ include("../src/geometry.jl")
     @testset "Spherical and Cartesian Conversions" begin
         theta, phi, r = π / 4, π / 4, Rmoon
         cart = spherical_to_cartesian(theta, phi, r)
-        sph = cartesian_to_spherical(cart[1], cart[2], cart[3])
+        sph = cartesian_to_spherical(cart)
         @test sph[1] ≈ theta atol = 1e-5
         @test sph[2] ≈ phi atol = 1e-5
         @test sph[3] ≈ r atol = 1e-5km

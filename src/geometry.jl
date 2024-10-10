@@ -7,11 +7,169 @@ import Unitful: km
 
 """
 Spherical approximation to the polar radius of the Moon.
-
-Note: PG's MC had 1736.0km - TODO check.
 """
 const Rmoon = 1737.4km
 
+# Define Moon region types and functions
+abstract type Region end
+
+struct WholeMoonRegion <: Region end
+
+struct CircularRegion <: Region
+    center_lat::Float64
+    center_lon::Float64
+    radius::Float64
+end
+
+struct PolarRegion <: Region
+    pole::Symbol  # :north or :south
+    angle::Float64  # degrees from pole
+end
+
+struct CustomRegion <: Region
+    criteria::Function
+    area::Float64
+end
+
+function create_region(config::String)
+    if config == "whole_moon"
+        return WholeMoonRegion()
+    elseif startswith(config, "circular:")
+        lat, lon, radius = parse.(Float64, split(config[10:end], ","))
+        return CircularRegion(lat, lon, radius)
+    elseif startswith(config, "polar:")
+        pole, angle = split(config[7:end], ",")
+        return PolarRegion(Symbol(pole), parse(Float64, angle))
+    else
+        throw(ArgumentError("Invalid region configuration"))
+    end
+end
+
+# region location filtering
+function is_in_region(surface, region::WholeMoonRegion)
+    return true  # whole moon includes all surface points
+end
+
+function is_in_region(surface, region::CircularRegion)
+    lat, lon = deg2rad.(cartesian_to_latlon(surface))
+    center_lat, center_lon = deg2rad.(region.center_lat, region.center_lon)
+    
+    dlat = (lat - center_lat)
+    dlon = (lon - center_lon)
+    a = sin(dlat/2)^2 + cos(lat) * cos(center_lat) * sin(dlon/2)^2
+    gc = 2 * atan(sqrt(a), sqrt(1-a)) * Rmoon
+    
+    return gc <= region.radius
+end
+
+function is_in_region(surface, region::PolarRegion)
+    lat, _ = cartesian_to_latlon(surface)
+    if region.pole == :north
+        return lat >= 90 - region.angle
+    else
+        return lat <= -90 + region.angle
+    end
+end
+
+function is_in_region(surface, region::CustomRegion)
+    lat, lon = cartesian_to_latlon(surface)
+    return region.criteria(lat, lon)
+end
+
+# Return area of region
+function region_area(region::WholeMoonRegion)
+    return 4 * π * Rmoon^2
+end
+
+function region_area(region::CircularRegion)
+    return 2 * π * Rmoon^2 * (1 - cos(region.radius / Rmoon))
+end
+
+function region_area(region::PolarRegion)
+    return 2 * π * Rmoon^2 * (1 - cos(region.angle * π / 180))
+end
+
+function region_area(region::CustomRegion)
+    return region.area
+end
+
+# Define spacecraft types and location sampling
+abstract type Spacecraft end
+
+struct FixedPlatform <: Spacecraft
+    lat::Float64
+    lon::Float64
+    altitude::typeof(1.0km)
+end
+
+struct CircularOrbit <: Spacecraft 
+    altitude::typeof(1.0km)
+end
+
+struct SampledPositions <: Spacecraft
+    positions::Vector{SVector{3,Float64}}
+end
+
+function create_spacecraft(config::String)
+    if startswith(config, "fixed:")
+        lat, lon, alt = parse.(Float64, split(config[7:end], ","))
+        return FixedPlatform(lat, lon, alt * km)
+    elseif startswith(config, "orbit:")
+        alt = parse(Float64, split(a, ":")[2])
+        return CircularOrbit(alt * km)
+    elseif startswith(config, "file:")
+        filename = config[6:end]
+        positions = [SVector{3,Float64}(parse.(Float64, split(line))) for line in eachline(filename)]
+        return SampledPositions(positions)
+    else
+        throw(ArgumentError("Invalid spacecraft configuration"))
+    end
+end
+
+function get_position(spacecraft::FixedPlatform)
+    return latlon_to_cartesian(spacecraft.lat, spacecraft.lon, Rmoon + spacecraft.altitude)
+end
+
+function get_position(spacecraft::CircularOrbit)
+    return random_point_on_cicular_orbit(Rmoon + spacecraft.altitude)
+end
+
+function get_position(spacecraft::SampledPositions, altitude)
+    position = rand(spacecraft.positions)
+    return normalize(position) * (Rmoon + altitude)  # TODO: check 
+end
+
+function is_visible(surface, spacecraft)
+    surface_normal = normalize(surface)  
+    to_spacecraft = normalize(spacecraft - surface)
+    return dot(surface_normal, to_spacecraft)  > 0  # central angle < 90 deg
+end
+
+"""
+    random_point_on_sphere()
+
+Return cartesian point (x, y, z) randomly distributed on sphere of radius r.
+
+This uses the triple gaussian method which is slightly faster than the 
+spherical coords method. https://mathworld.wolfram.com/SpherePointPicking.html
+"""
+function random_point_on_sphere(r=1)
+    xyz = SVector{3, Float64}(randn(), randn(), randn())
+    return r * xyz / norm(xyz)
+end
+
+"""
+Return cartesian vector to spacecraft at altitude.
+
+Note: this samples uniformly in latitude which does not give uniformly
+distributed points on the sphere (overdensity of points on the poles which 
+is expected for circular polar orbits).
+"""
+function random_point_on_cicular_orbit(r=Rmoon)
+    φ = π * rand()  # Co-latitute uniform on [0, π]
+    λ = 2π * rand() # Longitude uniform on [0, 2π]
+    return spherical_to_cartesian(φ, λ, r)
+end
 """
     random_north_pole_point()
 
@@ -80,11 +238,36 @@ end
 """
 Convert a cartesian point (x, y, z) into a spherical point (theta, phi, r).
 """
-function cartesian_to_spherical(x, y, z)
+function cartesian_to_spherical(point::SVector{3})
+    x, y, z = point
     r = sqrt(x * x + y * y + z * z)
-    return SVector{3}([acos(z / r),
-        atan(y, x),
-        r])
+    return SVector{3}([acos(z / r), atan(y, x), r])
+end
+
+"""
+Convert a cartesian point (x, y, z) into (lat, lon)).
+"""
+function cartesian_to_latlon(point::SVector{3})
+    x, y, z = point
+    lat = rad2deg(asin(z / norm(point)))
+    lon = rad2deg(atan(y, x))
+    return lat, lon
+end
+
+"""
+Convert a (lat, lon) to cartesian (x, y, z) vector at radius r.
+"""
+function latlon_to_cartesian(lat::Float64, lon::Float64)
+    lat_rad = deg2rad(lat)
+    lon_rad = deg2rad(lon)
+    x = cos(lat_rad) * cos(lon_rad)
+    y = cos(lat_rad) * sin(lon_rad)
+    z = sin(lat_rad)
+    return SVector{3}(x, y, z)
+end
+
+function latlon_to_cartesian(lat::Float64, lon::Float64, r::Union{Float64, typeof(1.0km)})
+    return r * latlon_to_cartesian(lat, lon)
 end
 
 """

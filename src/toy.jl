@@ -83,7 +83,7 @@ function orbiting(altitude, ntrials=2e7)
         # surface = random_point_on_cap(π; r=Rmoon)
 
         # calculate the sampled value of θ for the surface point
-        θ, _, _ = CoRaLS.cartesian_to_spherical(surface...)
+        θ, _, _ = CoRaLS.cartesian_to_spherical(surface)
 
         # check if the point lies outside the polar cap
         ((θ > θpole) && θ < (π - θpole)) && continue

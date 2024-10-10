@@ -77,7 +77,7 @@ function compute_direct(::VectorGeometry,
     zenith = acos((origin / norm(origin)) ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
-    θ, ϕ, _ = cartesian_to_spherical(origin...)
+    θ, ϕ, _ = cartesian_to_spherical(origin)
 
     # calculate the below horizon angle at the payload
     el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)
@@ -199,7 +199,7 @@ function compute_reflected(::VectorGeometry,
     zenith = acos((origin / norm(origin)) ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
-    θ, ϕ, _ = cartesian_to_spherical(origin...)
+    θ, ϕ, _ = cartesian_to_spherical(origin)
 
     # calculate the below horizon angle at the payload
     el = -(acos(-view ⋅ (antenna / norm(antenna))) - pi / 2.0)

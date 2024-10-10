@@ -33,7 +33,9 @@ Typical usage of the module involves importing it and then utilizing its various
 """
 
 # exports from geometry.jl
-export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area
+export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area, random_point_on_sphere
+export WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, create_region, is_in_region, region_area
+export FixedPlatform, CircularOrbit, SampledPositions, create_spacecraft, get_position
 
 # exports from spectrum.jl
 export auger_spectrum_2021, auger_spectrum_2020, auger_spectrum, yr, cr_spectrum
@@ -76,7 +78,7 @@ export magnitude_trigger, gaussian_trigger, rician_trigger
 export psr_area, psr_fraction
 
 # exports from acceptance.jl
-export acceptance, differential_spectrum, trials_passed
+export acceptance, differential_spectrum, trials_passed, old_acceptance
 
 # exports from plots.jl
 export plot_differential_spectrum, plot_offaxis_angle, plot_acceptance
