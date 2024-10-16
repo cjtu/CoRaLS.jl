@@ -28,8 +28,28 @@ end
 
 struct CustomRegion <: Region
     criteria::Function
-    area::Float64
+    area::Float64  # must be in [km^2]
 end
+
+# PSR Definitions from the following paper giving PSR area in south and north.
+# Ref: Mazarico, E., G. A. Neumann, D. E. Smith, M. T. Zuber, and M. H. Torrence (2011) “Illumination conditions of the lunar polar regions using LOLA topography.” Icarus, 211, no. 2: 1066-1081. https://doi.org/10.1016/j.icarus.2010.10.030 
+# Chance of hitting PSR = area of PSR / area 10 of spherical cap 10 degrees from pole (equiprobable for C.R. to hit anywhere on pole)
+#  TODO: to improve accuracy, could update this to lookup table of lat/lons in PSRs
+
+SouthPolePSR = CustomRegion(
+    (lat, lon) -> (lat <= -80) && rand() < 0.0557,  # 5.57% chance in PSR
+    1.6055e4  # [km^2] Area of South pole PSRs (Mazarico et al. 2011)
+)
+
+NorthPolePSR = CustomRegion(
+    (lat, lon) -> (lat >= 80) && rand() < 0.0446,  # 4.46% chance in PSR
+    1.2866e4  # [km^2] Area of North pole PSRs (Mazarico et al. 2011)
+)
+
+AllPSR = CustomRegion(
+    (lat, lon) -> (abs(lat) >= 80) && rand() < 0.0502,  # 5.02% chance in PSR
+    2.8921e4  # [km^2] Total PSR area (Mazarico et al. 2011)
+)
 
 function create_region(config::String)
     if config == "whole_moon"
@@ -90,7 +110,7 @@ function region_area(region::PolarRegion)
 end
 
 function region_area(region::CustomRegion)
-    return region.area
+    return region.area * km^2
 end
 
 # Define spacecraft types and location sampling
@@ -106,8 +126,8 @@ struct CircularOrbit <: Spacecraft
     altitude::typeof(1.0km)
 end
 
-struct SampledPositions <: Spacecraft
-    positions::Vector{SVector{3,Float64}}
+struct SampledOrbit <: Spacecraft
+    positions
 end
 
 function create_spacecraft(config::String)
@@ -115,16 +135,34 @@ function create_spacecraft(config::String)
         lat, lon, alt = parse.(Float64, split(config[7:end], ","))
         return FixedPlatform(lat, lon, alt * km)
     elseif startswith(config, "orbit:")
-        alt = parse(Float64, split(a, ":")[2])
-        return CircularOrbit(alt * km)
+        alt = parse(Float64, split(config, ":")[2])
+        return CircularOrbit(alt * km)  # TODO: strip km from end if given
     elseif startswith(config, "file:")
         filename = config[6:end]
-        positions = [SVector{3,Float64}(parse.(Float64, split(line))) for line in eachline(filename)]
-        return SampledPositions(positions)
+        return parse_orbit(filename)
     else
         throw(ArgumentError("Invalid spacecraft configuration"))
     end
 end
+
+"""
+    parse_orbit(fname)
+
+Parse orbital info from a CSV file with columns: time, longitude, latitude, altitude.
+
+Returns SampledOrbit matrix of positions to randomly sample.
+"""
+function parse_orbit(fname="lro_orbit_1yr_2010.csv")
+    data = readdlm("$(@__DIR__)/../data/$(fname)", ',', skipstart=1)
+    return SampledOrbit(data[:, 2:end])
+end
+
+# Not yet implemented - no use for orbital datetimes yet
+# function parse_orbit(fname="lro_orbit_1yr_2010.csv", fmt=dateformat"yyyy-mm-dd HH:MM:SS.ssssss \UTC")
+#     data = readdlm("$(@__DIR__)/../data/$(fname)", ',', skipstart=1)
+#     datetime = [Dates.DateTime(dt, fmt) for dt in data[:, 1]]
+#     return SampledOrbit(data[:, 2:end])
+# end
 
 function get_position(spacecraft::FixedPlatform)
     return latlon_to_cartesian(spacecraft.lat, spacecraft.lon, Rmoon + spacecraft.altitude)
@@ -134,9 +172,10 @@ function get_position(spacecraft::CircularOrbit)
     return random_point_on_cicular_orbit(Rmoon + spacecraft.altitude)
 end
 
-function get_position(spacecraft::SampledPositions, altitude)
-    position = rand(spacecraft.positions)
-    return normalize(position) * (Rmoon + altitude)  # TODO: check 
+function get_position(spacecraft::SampledOrbit)
+    idx = rand(1:size(spacecraft.positions)[1])
+    lon, lat, alt = spacecraft.positions[idx, :]  # [deg, deg, km]
+    return latlon_to_cartesian(lat, lon, Rmoon + alt*km)
 end
 
 function is_visible(surface, spacecraft)
