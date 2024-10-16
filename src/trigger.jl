@@ -116,3 +116,14 @@ function rician_trigger(; snr_threshold=5.0, bw=900.0MHz,
 
     return trigger
 end
+
+
+
+"""
+    trigger_all()
+
+Always triggers. Used for testing geometric acceptance and debugging.
+"""
+function trigger_all()
+    return event -> true
+end

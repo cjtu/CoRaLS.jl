@@ -72,7 +72,7 @@ export LPDA, ANITA
 export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry
 
 # exports from trigger.jl
-export magnitude_trigger, gaussian_trigger, rician_trigger
+export magnitude_trigger, gaussian_trigger, rician_trigger, trigger_all
 
 # exports from moon.jl
 export psr_area, psr_fraction
