@@ -66,6 +66,7 @@ See Equation 9 in:
 
 """
 function auger_spectrum_2020(E)
+    E = u"eV".(E)
     # Table III
     J0 = 1.315e-18 / km^2 / sr / yr / eV
     γ1 = 3.29
@@ -101,6 +102,7 @@ https://doi.org/10.1140/epjc/s10052-021-09700-w
 
 """
 function auger_spectrum_2021(E)
+    E = u"eV".(E)
     # Table 7
     J0 = 1.309e-18 / km^2 / sr / yr / eV
     ω01 = 0.43
@@ -242,18 +244,18 @@ end
 Draw a random sample from the Auger UHECR flux between
 `min_energy` and `max_energy`.
 """
-function sample_auger(min_energy, max_energy)
-
+function sample_auger(min_energy, max_energy; auger_func=auger_spectrum_2021)
+    
     # get the min and max flux values for the rejection sampling
     # assumes a falling spectrum
-    min_flux = auger_spectrum(max_energy)
-    max_flux = auger_spectrum(min_energy)
+    min_flux = auger_func(max_energy)
+    max_flux = auger_func(min_energy)
 
     # draw a random sample in EeV
     E = rand(Uniform(min_energy ./ EeV, max_energy ./ EeV))EeV
 
     # loop until we get a valid sample
-    while (max_flux - min_flux) * rand() + min_flux > auger_spectrum(E)
+    while (max_flux - min_flux) * rand() + min_flux > auger_func(E)
         E = rand(Uniform(min_energy ./ EeV, max_energy ./ EeV))EeV
     end
 

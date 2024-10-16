@@ -1,6 +1,7 @@
 using CoRaLS
 using PyPlot
-using Unitful: eV, km, sr, yr, ustrip
+using Unitful
+using Unitful: EeV, eV, km, sr, yr, ustrip
 using Test
 
 function plot_auger_2021_comparison()
@@ -13,6 +14,12 @@ function plot_auger_2021_comparison()
     J_auger = auger_spectrum_2021.(bins .* eV)  # [1 / (km^2 sr yr eV)]
     J_auger = round.(ustrip.(J_auger), sigdigits=3)  # cancel units for plot
 
+    # Show rejection sampled spectrum
+    ntrials = 1e4
+    bin_edges = 10 .^ range(17, 20.25, length(J_expected)+1)
+    rsamp = [sample_auger(u"EeV"(10^17.0 * eV), u"EeV"(10^20.2 * eV), auger_func=auger_spectrum_2021) / eV |> NoUnits for _ = 1:ntrials]
+
+
     # Plot
     rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     rcParams["axes.axisbelow"] = true
@@ -24,6 +31,8 @@ function plot_auger_2021_comparison()
     fig, axs = plt.subplots(1, 1, figsize=(8, 6))
     axs.scatter(bins, J_expected, color="r",  label="J (Table 10, Auger 2020)")
     axs.loglog(bins, J_auger, color="k", linestyle="--", label="Auger 2021 parameterization")
+    axs.hist(rsamp, bins=bin_edges, density=true, histtype="step", label="Rejection sampled", zorder=0)
+
     [axs.annotate(eJ, (E, eJ), rotation=30, color="r") for (E, eJ) in zip(bins, J_expected)]
     [axs.annotate(J, (E, J), ha="right", va="top", rotation=30) for (E, J) in zip(bins, J_auger)]
     axs.set_xlabel("Energy [eV]")
@@ -54,6 +63,8 @@ function plot_auger_2020_comparison()
 
     # Auger spectrum parameterization
     J_auger = auger_spectrum_2020.(bin_energy .* eV)  # [1 / (km^2 sr yr eV)]
+    ntrials = 1e4
+    rsamp = [sample_auger(u"EeV".(bin_energy[1].* eV), u"EeV".(bin_energy[end].* eV), auger_func=auger_spectrum_2020) / eV |> NoUnits for _ = 1:ntrials]
 
     # Trapezoidal integration over energy to get counts
     # Note: the Auger data is Jraw, but the spectral fit computes J
@@ -71,8 +82,10 @@ function plot_auger_2020_comparison()
 
     fig, axs = plt.subplots(2, 1, figsize=(6, 8))
     axs[1].loglog(bin_energy, ustrip.(J_auger), label="Auger 2020 parameterization")
+    axs[1].hist(rsamp, bins=bins, density=true, histtype="step", label="Auger 2020 sampled")
+    
     axs[1].set_ylabel("J (E) [1 / (km^2 yr sr eV)]")
-    axs[1].set_ylim(1e-25, 1e-17)
+    # axs[1].set_ylim(1e-25, 1e-17)
     axs[1].legend()
     axs[2].scatter(bin_energy, raw_count, color="r",  label="Raw counts, Fig. 7, Auger 2020")
     axs[2].loglog(bin_energy, count, color="k", linestyle="--", label="Counts integrated from J")
