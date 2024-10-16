@@ -69,9 +69,12 @@ function acceptance(ntrials::Int, nbins::Int;
         end # end ntrials loop
     end # end nbins loop
 
-    # Compute acceptance
-    dAΩ = (dcount ./ ntrials) .* region_area(region)  # [km^2 sr]
-    rAΩ = (rcount ./ ntrials) .* region_area(region)  # [km^2 sr]
+    # Compute acceptance (pi * A_collected)
+    #  factor of pi from integral(cos(theta)) possible angles of incoming CRs
+    #  area over which CRs are collected is the whole moon
+    #  (location and visibility weightings are factored in by rejection)
+    dAΩ = pi * (dcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
+    rAΩ = pi * (rcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
 
     return Acceptance(ntrials, altitude, region, spacecraft, energies, dAΩ, rAΩ, dfailed, rfailed)
     
