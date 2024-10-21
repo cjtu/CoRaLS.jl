@@ -54,14 +54,12 @@ function acceptance(ntrials::Int, nbins::Int;
         for i = 1:ntrials
             # throw a random cosmic ray trial and get the signal at the payload
             direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; altitude=altitude, kwargs...)
-            # if direct isa TrialFailed
-            if direct == NotInRegion || direct == NotVisible
+            if direct isa TrialFailed
                 dfailed[bin, Int(direct)] += 1
             else
                 dcount[bin] += 1
             end
-            # if direct isa TrialFailed
-            if reflected == NotInRegion || reflected == NotVisible
+            if direct isa TrialFailed
                 rfailed[bin, Int(reflected)] += 1
             else
                 rcount[bin] += 1

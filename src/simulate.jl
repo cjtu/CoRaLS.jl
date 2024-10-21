@@ -150,7 +150,7 @@ function throw_cosmicray(Ecr, trigger, region, spacecraft; kwargs...)
     elseif !is_in_region(surface, region)
         return (NotInRegion, NotInRegion)
     end
-    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs)
+    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs...)
 end
 
 
@@ -212,7 +212,7 @@ function throw_cosmicray(Ecr, trigger; altitude=20.0km, kwargs...)
     # if this point is not within the horizon of the SC, then we can't see it.
     # abs(θ - θsc) > θmax && return (NotVisible, NotVisible)
     abs(Δσ) > θmax && return (NotVisible, NotVisible)
-    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs)
+    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs...)
 end
 
 """

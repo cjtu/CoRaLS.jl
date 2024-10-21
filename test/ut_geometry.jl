@@ -5,18 +5,19 @@ import Unitful: km, m, s, H, eV, K, MHz, V
 include("../src/geometry.jl")
 
 @testset verbose = true "geometry.jl" begin
-    # Test random points on poles
+
     @testset "Random Points on Poles" begin
         point = random_north_pole_point()
         @test length(point) == 3
         @test norm(point) ≈ Rmoon atol = 1e-5km
+        @test cartesian_to_latlon(point)[1] > 80
 
         point = random_south_pole_point()
         @test length(point) == 3
         @test norm(point) ≈ Rmoon atol = 1e-5km
+        @test cartesian_to_latlon(point)[1] < -80
     end
 
-    # Test random angles on cap
     @testset "Random Angles on Cap" begin
         theta_max = π / 4
         theta, phi = random_angles_on_cap(theta_max)
@@ -24,7 +25,6 @@ include("../src/geometry.jl")
         @test 0 ≤ phi ≤ 2π
     end
 
-    # Test random point on cap
     @testset "Random Point on Cap" begin
         theta_max = π / 4
         point = random_point_on_cap(theta_max)
@@ -32,7 +32,6 @@ include("../src/geometry.jl")
         @test norm(point) ≈ Rmoon atol = 1e-5km
     end
 
-    # Test spherical to cartesian conversion and vice versa
     @testset "Spherical and Cartesian Conversions" begin
         theta, phi, r = π / 4, π / 4, Rmoon
         cart = spherical_to_cartesian(theta, phi, r)
@@ -42,36 +41,38 @@ include("../src/geometry.jl")
         @test sph[3] ≈ r atol = 1e-5km
     end
 
-    # Test horizon angle calculation
+    # TODO: improve this test
     @testset "Horizon Angle Calculation" begin
         altitude = 100km
         angle = horizon_angle(altitude)
         @test angle < 0 # Should be a negative angle
     end
 
-    # Test random vector generation
     @testset "Random Vector Generation" begin
         vec = random_vector()
         @test length(vec) == 3
         @test norm(vec) ≈ 1.0 atol = 1e-5
     end
 
-    # Test random direction generation
     @testset "Random Direction Generation" begin
         dir = random_direction()
         @test length(dir) == 3
         @test norm(dir) ≈ 1.0 atol = 1e-5
     end
 
-    # Test spherical cap area calculation
     @testset "Spherical Cap Area Calculation" begin
-        theta = π / 4
-        area = spherical_cap_area(theta)
-        expected_area = 2π * Rmoon^2 * (1.0 - cos(theta))
-        @test area ≈ expected_area atol = 1e-5km^2
+        a_moon = 4*pi*Rmoon^2
+
+        # Null case
+        @test spherical_cap_area(0) == 0km^2
+        
+        # Whole Moon
+        @test spherical_cap_area(π) ≈ a_moon atol = 1e-5km^2
+
+        # Half of the Moon
+        @test spherical_cap_area(π/2) ≈ a_moon/2 atol = 1e-5km^2
     end
 
-    # Test intersection with sphere
     @testset "Intersection with Sphere" begin
         start = SVector{3}(100.0, 0.0, 0.0)
         direction = normalize(SVector{3}(-1.0, 0.0, 0.0))
@@ -82,3 +83,4 @@ include("../src/geometry.jl")
         @test (norm(intersection) - radius) / radius < 1e-6
     end
 end
+;
