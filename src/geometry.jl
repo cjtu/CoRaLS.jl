@@ -2,6 +2,7 @@ using Rotations
 using StaticArrays
 using Distributions
 using ToggleableAsserts
+using Parameters
 using Unitful
 import Unitful: km
 
@@ -21,9 +22,9 @@ struct CircularRegion <: Region
     radius::Float64
 end
 
-struct PolarRegion <: Region
-    pole::Symbol  # :north or :south
-    angle::Float64  # degrees from pole
+@with_kw struct PolarRegion <: Region
+    pole::Symbol = :south  # :north or :south
+    angle::Float64 = 10  # degrees from pole
 end
 
 struct CustomRegion <: Region
@@ -36,22 +37,17 @@ end
 # Chance of hitting PSR = area of PSR / area 10 of spherical cap 10 degrees from pole (equiprobable for C.R. to hit anywhere on pole)
 #  TODO: to improve accuracy, could update this to lookup table of lat/lons in PSRs
 
-SouthPolePSR = CustomRegion(
-    (lat, lon) -> (lat <= -80) && rand() < 0.0557,  # 5.57% chance in PSR
-    1.6055e4  # [km^2] Area of South pole PSRs (Mazarico et al. 2011)
-)
+# South pole: 5.57% of area < -80 degrees is PSR (16055 km^2)
+SouthPolePSR = (prob=0.0557, area=1.6055e4) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
 
-NorthPolePSR = CustomRegion(
-    (lat, lon) -> (lat >= 80) && rand() < 0.0446,  # 4.46% chance in PSR
-    1.2866e4  # [km^2] Area of North pole PSRs (Mazarico et al. 2011)
-)
+# North pole: 4.46% of area > 80 degrees is PSR (12866 km^2)
+NorthPolePSR = (prob=0.0446, area=1.2866e4) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
 
-AllPSR = CustomRegion(
-    (lat, lon) -> (abs(lat) >= 80) && rand() < 0.0502,  # 5.02% chance in PSR
-    2.8921e4  # [km^2] Total PSR area (Mazarico et al. 2011)
-)
+# Both poles: 5.02% of area within 10 degrees of either pole is PSR (28921 km^2)
+AllPSR = (prob=0.0502, area=2.8921e4) -> CustomRegion((lat, lon)->(abs(lat) >= 80) && rand() < prob, area)
 
 function create_region(config::String)
+    config = lowercase(config)
     if config == "whole_moon"
         return WholeMoonRegion()
     elseif startswith(config, "circular:")
@@ -60,6 +56,12 @@ function create_region(config::String)
     elseif startswith(config, "polar:")
         pole, angle = split(config[7:end], ",")
         return PolarRegion(Symbol(pole), parse(Float64, angle))
+    elseif config == "psr:south"
+        return SouthPolePSR()
+    elseif config == "psr:north"
+        return NorthPolePSR()
+    elseif config == "psr:all"
+        return AllPSR()
     else
         throw(ArgumentError("Invalid region configuration"))
     end
