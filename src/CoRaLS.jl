@@ -34,7 +34,7 @@ Typical usage of the module involves importing it and then utilizing its various
 
 # exports from geometry.jl
 export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area, random_point_on_sphere
-export WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, SouthPolePSR, NorthPolePSR, AllPSR, create_region, is_in_region, region_area
+export WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, SouthPolePSR, NorthPolePSR, AllPSR, create_region, is_in_region, region_area, parse_orbit
 export FixedPlatform, CircularOrbit, SampledPositions, create_spacecraft, get_position
 
 # exports from spectrum.jl

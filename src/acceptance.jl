@@ -20,21 +20,22 @@ A structure to hold results of acceptance calculations, including trials, altitu
 """
 struct Acceptance
     ntrials::Int64 # per bin
-    altitude
     region::Region
     spacecraft::Spacecraft
     energies
     dAΩ
     rAΩ
+    dcount
+    rcount
+    failtypes
     dfailed
     rfailed
 end
 
 
 function acceptance(ntrials::Int, nbins::Int; 
-    altitude=50.0km,
     region::Region=PolarRegion(:south, 10),
-    spacecraft::Spacecraft=CircularOrbit(),
+    spacecraft::Spacecraft=CircularOrbit(50.0km),
     trigger=magnitude_trigger(100μV / m),
     min_energy=0.1EeV,
     max_energy=600.0EeV,
@@ -53,13 +54,13 @@ function acceptance(ntrials::Int, nbins::Int;
         # loop over the number of trials in this bin
         for i = 1:ntrials
             # throw a random cosmic ray trial and get the signal at the payload
-            direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; altitude=altitude, kwargs...)
+            direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; kwargs...)
             if direct isa TrialFailed
                 dfailed[bin, Int(direct)] += 1
             else
                 dcount[bin] += 1
             end
-            if direct isa TrialFailed
+            if reflected isa TrialFailed
                 rfailed[bin, Int(reflected)] += 1
             else
                 rcount[bin] += 1
@@ -69,12 +70,12 @@ function acceptance(ntrials::Int, nbins::Int;
 
     # Compute acceptance (pi * A_collected)
     #  factor of pi from integral(cos(theta)) possible angles of incoming CRs
-    #  area over which CRs are collected is the whole moon
-    #  (location and visibility weightings are factored in by rejection)
-    dAΩ = pi * (dcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
-    rAΩ = pi * (rcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
+    #  factor for area is whole moon (cosmic rays sampled from full Moon sphere)
+    #  all other acceptance factors are computed by rejection (visibility, triggering, etc)
+    dAΩ = pi * sr * (dcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
+    rAΩ = pi *sr * (rcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
 
-    return Acceptance(ntrials, altitude, region, spacecraft, energies, dAΩ, rAΩ, dfailed, rfailed)
+    return Acceptance(ntrials, region, spacecraft, energies, dAΩ, rAΩ, dcount, rcount, instances(TrialFailed), dfailed, rfailed)
     
 end
 
@@ -165,28 +166,22 @@ function old_acceptance(ntrials, nbins; min_energy=0.1EeV,
             direct, reflected = throw_cosmicray(Ecr[i], trigger; altitude=altitude, kwargs...)
 
             # check for a direct trigger
-            # if !(direct isa TrialFailed)
-            #     if trigger(direct)
-            #         direct.triggered = true
-            #         Threads.atomic_add!(dpassed, 1)
-            #     end
-            #     save_events && push!(devents[Threads.threadid()], direct)
-            # end
-            if !(direct == NotInRegion || direct == NotVisible)
-                Threads.atomic_add!(dpassed, 1)
-            end
-            # check for a reflected trigger
-            # if !(reflected isa TrialFailed)
-            #     if trigger(reflected)
-            #         reflected.triggered = true
-            #         Threads.atomic_add!(rpassed, 1)
-            #     end
-            #     save_events && push!(revents[Threads.threadid()], reflected)
-            # end
-            if !(reflected == NotInRegion || reflected == NotVisible)
-                Threads.atomic_add!(rpassed, 1)
+            if !(direct isa TrialFailed)
+                if trigger(direct)
+                    direct.triggered = true
+                    Threads.atomic_add!(dpassed, 1)
+                end
+                save_events && push!(devents[Threads.threadid()], direct)
             end
 
+            # check for a reflected trigger
+            if !(reflected isa TrialFailed)
+                if trigger(reflected)
+                    reflected.triggered = true
+                    Threads.atomic_add!(rpassed, 1)
+                end
+                save_events && push!(revents[Threads.threadid()], reflected)
+            end
         end # end loop over trials
 
         # calculate the acceptance at this energy
