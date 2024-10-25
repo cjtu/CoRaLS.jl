@@ -326,7 +326,7 @@ function compute_direct(::ScalarGeometry,
     θ_r = acos(view ⋅ surface_normal)
 
     # since we have surface roughness, we can have TIR or shadowed geometries
-    # θ_r > π / 2.0 && return TIR
+    θ_r > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -476,7 +476,7 @@ function compute_reflected(::ScalarGeometry,
     θ_r_true = acos(view ⋅ surface_normal)
 
     # check that with a random slope, we aren't beyond TIR
-    # θ_r_true > π / 2.0 && return TIR
+    θ_r_true > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -499,7 +499,7 @@ function compute_reflected(::ScalarGeometry,
     x2 = ice_depth * tan(θ_reg) # post-reflection
 
     # check thate we aren't violating TIR
-    # (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
+    (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
 
     # the total distance is calculated over each step
     Drego = sqrt(x1 * x1 + (ice_depth - depth) * (ice_depth - depth)) +

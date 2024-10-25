@@ -25,7 +25,7 @@ Arguments:
 
 Generates a two-part plot. The left plot shows histograms of incident angles at the surface for direct and reflected events. The right plot shows incident angles at the ice layer for reflected events. Behind these histograms, the function plots the transmission and reflection coefficients as a function of the incident angle.
 """
-function plot_incident_angles(AΩ)
+function plot_incident_angles(AΩ::Union{Acceptance, OldAcceptance})
 
     # create the figure
     fig, axes = plt.subplots(1, 2, figsize=(7, 3))
@@ -111,7 +111,7 @@ Plot histograms of polarization angles for direct and reflected events.
 Arguments:
 - `AΩ::Acceptance`: An object containing the acceptance calculation results.
 """
-function plot_polarization_angle(AΩ)
+function plot_polarization_angle(AΩ::Union{Acceptance, OldAcceptance})
 
     # create the figure - plot this in polar coordinates
     fig = plt.figure(figsize=(6, 3))
@@ -159,7 +159,7 @@ Generate a plot showing the off-axis angle distribution of direct and reflected 
 Arguments:
 - `AΩ::Acceptance`: An object containing the acceptance calculation results.
 """
-function plot_offaxis_angle(AΩ)
+function plot_offaxis_angle(AΩ::Union{Acceptance, OldAcceptance})
 
     # create the figure
     fig, ax = plt.subplots(figsize=(4, 4))
@@ -194,7 +194,7 @@ Arguments:
 
 This function generates a line plot illustrating the acceptance rates for both direct and reflected events across different energy levels.
 """
-function plot_acceptance(AΩ::Acceptance)
+function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance})
 
     # create the figure
     fig, ax = plt.subplots(figsize=(4, 4))
@@ -231,7 +231,7 @@ Arguments:
 
 This function plots the estimated number of events per energy bin over the duration of the mission.
 """
-function plot_differential_spectrum(AΩ::Acceptance, T)
+function plot_differential_spectrum(AΩ::Union{Acceptance, OldAcceptance}, T)
 
     # create the figure
     fig, ax = plt.subplots(figsize=(4, 4))

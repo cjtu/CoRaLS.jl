@@ -29,7 +29,7 @@ end
 
 struct CustomRegion <: Region
     criteria::Function
-    area::Float64  # must be in [km^2]
+    area::typeof(1.0km^2)  # must be in [km^2]
 end
 
 # PSR Definitions from the following paper giving PSR area in south and north.
@@ -38,13 +38,13 @@ end
 #  TODO: to improve accuracy, could update this to lookup table of lat/lons in PSRs
 
 # South pole: 5.57% of area < -80 degrees is PSR (16055 km^2)
-SouthPolePSR = (prob=0.0557, area=1.6055e4) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
+SouthPolePSR = (prob=0.0557, area=1.6055e4km^2) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
 
 # North pole: 4.46% of area > 80 degrees is PSR (12866 km^2)
-NorthPolePSR = (prob=0.0446, area=1.2866e4) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
+NorthPolePSR = (prob=0.0446, area=1.2866e4km^2) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
 
 # Both poles: 5.02% of area within 10 degrees of either pole is PSR (28921 km^2)
-AllPSR = (prob=0.0502, area=2.8921e4) -> CustomRegion((lat, lon)->(abs(lat) >= 80) && rand() < prob, area)
+AllPSR = (prob=0.0502, area=2.8921e4km^2) -> CustomRegion((lat, lon)->(abs(lat) >= 80) && rand() < prob, area)
 
 function create_region(config::String)
     config = lowercase(config)
@@ -112,7 +112,7 @@ function region_area(region::PolarRegion)
 end
 
 function region_area(region::CustomRegion)
-    return region.area * km^2
+    return region.area
 end
 
 # Define spacecraft types and location sampling
@@ -129,7 +129,7 @@ struct CircularOrbit <: Spacecraft
 end
 
 struct SampledOrbit <: Spacecraft
-    positions
+    latlonalt
 end
 
 function create_spacecraft(config::String)
@@ -152,7 +152,7 @@ end
 
 Parse orbital info from a CSV file with columns: time, longitude, latitude, altitude.
 
-Returns SampledOrbit matrix of positions to randomly sample.
+Returns SampledOrbit matrix of lat,lon,alt positions to randomly sample.
 """
 function parse_orbit(fname="lro_orbit_1yr_2010.csv")
     data = readdlm("$(@__DIR__)/../data/$(fname)", ',', skipstart=1)
@@ -175,8 +175,8 @@ function get_position(spacecraft::CircularOrbit)
 end
 
 function get_position(spacecraft::SampledOrbit)
-    idx = rand(1:size(spacecraft.positions)[1])
-    lon, lat, alt = spacecraft.positions[idx, :]  # [deg, deg, km]
+    idx = rand(1:size(spacecraft.latlonalt)[1])
+    lon, lat, alt = spacecraft.latlonalt[idx, :]  # [deg, deg, km]
     return latlon_to_cartesian(lat, lon, Rmoon + alt*km)
 end
 
