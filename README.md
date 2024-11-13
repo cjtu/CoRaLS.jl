@@ -6,9 +6,11 @@
 
 ## Installation
 
-Install Julia v1.8. Since this is an older release, either go to [old releases](https://julialang.org/downloads/oldreleases/) and [add Julia to your system path](https://julialang.org/downloads/platform/#optional_add_julia_to_path) or use an install helper like [juliaup](https://github.com/JuliaLang/juliaup) or [jill](https://github.com/abelsiqueira/jill).
+Install the latest version of Julia from [julialang.org/downloads](https://julialang.org/downloads/) and [add Julia to your system path](https://julialang.org/downloads/platform/#optional_add_julia_to_path). 
 
-Also ensure python and the `matplotlib` package are installed with [Anaconda](https://www.anaconda.com/)/[Miniconda](https://conda.io/miniconda.html)/[Miniforge](https://github.com/conda-forge/miniforge) (e.g. via `conda install matplotlib`).
+Also ensure python and the `matplotlib` package are installed with [Anaconda](https://www.anaconda.com/)/[Miniconda](https://conda.io/miniconda.html)/[Miniforge](https://github.com/conda-forge/miniforge) (e.g. so that it is visible with `conda list matplotlib`).
+
+Note: This code was originally written for v1.8 but most recently tested on v1.11. Julia takes care to not break backwards compatibility, so the code should run on newer v1.X.Y versions. To test on multiple versions, it is best to use a Julia install helper like [juliaup](https://github.com/JuliaLang/juliaup) or [jill](https://github.com/abelsiqueira/jill).
 
 Clone this repository:
 
@@ -16,14 +18,14 @@ Clone this repository:
 git clone git@github.com:cjtu/CoRaLS.jl.git
 ```
 
-Change directory to the cloned repository. If using multiple Julia versions on this machine, you may need to specify `juliaup default 1.8.5` or `jill switch 1.8`. Then start Julia via:
+Change directory to the cloned repository and start Julia.
 
 ```sh
 cd CoRaLS.jl
 julia
 ```
 
-In the Julia REPL, enter package mode by pressing `]` (note `julia>` changes to `>pkg`). Adding and building the PyCall package will give Julia access to the Python installation specified at the path supplied in quotes to `ENV["PYTHON"]` (leave blank `""` to use system default python):
+In the Julia REPL, enter package mode by pressing `]` (notice `julia>` changes to `>pkg`). Adding and building the PyCall package will give Julia access to the Python installation specified at the path supplied in quotes to `ENV["PYTHON"]` (leave blank `""` to use system default python):
 
 ```julia
 julia> ENV["PYTHON"]=""
@@ -32,7 +34,7 @@ pkg> add PyCall
 pkg> build PyCall
 ```
 
-Then activate the CoRaLS environment and instantiate it to install the required packages and compile CoRaLS.jl:
+Then activate the CoRaLS environment and instantiate it to install the required packages and compile CoRaLS.jl. You will need to activate the environment each time you start a new Julia session:
 
 ```julia
 pkg> activate .
@@ -64,9 +66,7 @@ julia> exit()
 After the first build of PyCall and importing of CoRaLS code, subsequent runs will be faster and proceed as:
 
 ```julia
-`]`
 pkg> activate .
-pkg> instantiate
 ```
 
 Backspace to exit `pkg>` mode, then:
