@@ -18,7 +18,7 @@ This is characterized by Gaussian "sigma" of the
 angular distribution of the surface.
 """
 struct GaussianRoughness <: RoughnessModel
-    σ # in radians
+    σ::Float64 # in radians
     GaussianRoughness(σ) = new(deg2rad(σ))
 end
 
@@ -39,7 +39,7 @@ This is characterized by Gaussian "sigma" of the
 angular distribution of the surface in degrees.
 """
 struct GaussianSlope <: SlopeModel
-    σ # in radians
+    σ::Float64 # in radians
     GaussianSlope(σ) = new(deg2rad(σ))
 end
 

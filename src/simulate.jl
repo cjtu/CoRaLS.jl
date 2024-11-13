@@ -233,7 +233,7 @@ function propagate_cosmicray(Ecr, surface, SC, trigger;
 
     # if it's an upgoing cosmic ray, reject the trial
     if surface ⋅ direction > 0km
-        println("Got an upgoing cosmic ray trial! This should never happen.")
+        @debug "Got an upgoing cosmic ray trial! This should never happen."
         return Upgoing, Upgoing
     end
 
