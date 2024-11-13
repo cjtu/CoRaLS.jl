@@ -19,7 +19,7 @@ This file is part of the `CoRaLS` module and contains functions and structures f
 A structure to hold results of acceptance calculations, including trials, altitude, energies, and different acceptance types (direct and reflected).
 """
 struct Acceptance
-    ntrials::Int64 # per bin
+    ntrials::Vector{Int}
     region::Region
     spacecraft::Spacecraft
     energies
@@ -39,6 +39,8 @@ function acceptance(ntrials::Int, nbins::Int;
     trigger=magnitude_trigger(100μV / m),
     min_energy=0.1EeV,
     max_energy=600.0EeV,
+    min_count=0,
+    max_retry=10,
     kwargs...
     )
     # Init arrays
@@ -46,37 +48,42 @@ function acceptance(ntrials::Int, nbins::Int;
     rcount = zeros(Int, nbins)
     dfailed = zeros(Int, nbins, length(instances(TrialFailed)))
     rfailed = zeros(Int, nbins, length(instances(TrialFailed)))
+    retries = zeros(Int, nbins)
     energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
 
     @info "Calculating acceptance using $(ntrials) trials across $(nbins) bins..."
 
     @showprogress 1 "Simulating..." for bin = 1:nbins
-        # loop over the number of trials in this bin
-        for i = 1:ntrials
-            # throw a random cosmic ray trial and get the signal at the payload
-            direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; kwargs...)
-            if direct isa TrialFailed
-                dfailed[bin, Int(direct)] += 1
-            else
-                dcount[bin] += 1
-            end
-            if reflected isa TrialFailed
-                rfailed[bin, Int(reflected)] += 1
-            else
-                rcount[bin] += 1
-            end
-        end # end ntrials loop
+        # Run acceptance loop at least once, retry if min_count not met up to max_retry times
+        while retries[bin] == 0 || (dcount[bin] < min_count && retries[bin] < max_retry)
+            # loop over the number of trials in this bin
+            for i = 1:ntrials
+                # throw a random cosmic ray trial and get the signal at the payload
+                direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; kwargs...)
+                if direct isa TrialFailed
+                    dfailed[bin, Int(direct)] += 1
+                else
+                    dcount[bin] += 1
+                end
+                if reflected isa TrialFailed
+                    rfailed[bin, Int(reflected)] += 1
+                else
+                    rcount[bin] += 1
+                end
+            end # end ntrials loop
+            retries[bin] += 1
+        end # end retry loop
     end # end nbins loop
 
     # Compute acceptance (pi * A_collected)
     #  factor of pi from integral(cos(theta)) possible angles of incoming CRs
     #  factor for area is whole moon (cosmic rays sampled from full Moon sphere)
     #  all other acceptance factors are computed by rejection (visibility, triggering, etc)
-    dAΩ = pi * sr * (dcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
-    rAΩ = pi *sr * (rcount ./ ntrials) .* region_area(WholeMoonRegion())  # [km^2 sr]
+    ntrials_per_bin = ntrials .* retries
+    dAΩ = pi * sr * (dcount ./ ntrials_per_bin) .* region_area(WholeMoonRegion())  # [km^2 sr]
+    rAΩ = pi *sr * (rcount ./ ntrials_per_bin) .* region_area(WholeMoonRegion())  # [km^2 sr]
 
-    return Acceptance(ntrials, region, spacecraft, energies, dAΩ, rAΩ, dcount, rcount, instances(TrialFailed), dfailed, rfailed)
-    
+    return Acceptance(ntrials, region, spacecraft, energies, dAΩ, rAΩ, dcount, rcount, retries, instances(TrialFailed), dfailed, rfailed)
 end
 
 

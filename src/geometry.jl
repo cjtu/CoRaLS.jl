@@ -19,7 +19,7 @@ struct WholeMoonRegion <: Region end
 struct CircularRegion <: Region
     center_lat::Float64
     center_lon::Float64
-    radius::Float64
+    radius::typeof(1.0km)
 end
 
 @with_kw struct PolarRegion <: Region
@@ -74,7 +74,7 @@ end
 
 function is_in_region(surface, region::CircularRegion)
     lat, lon = deg2rad.(cartesian_to_latlon(surface))
-    center_lat, center_lon = deg2rad.(region.center_lat, region.center_lon)
+    center_lat, center_lon = deg2rad.([region.center_lat, region.center_lon])
     
     dlat = (lat - center_lat)
     dlon = (lon - center_lon)
