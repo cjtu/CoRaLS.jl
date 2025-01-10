@@ -33,7 +33,11 @@ struct Acceptance
     rfailed
 end
 
+"""
+acceptance(ntrials, nbins; region, spacecraft, trigger, ...)
 
+Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involves simulations of cosmic ray interactions, triggering conditions, and aggregating results across multiple trials and energy bins.
+"""
 function acceptance(ntrials::Int, nbins::Int; 
     region::Region=PolarRegion(:south, 10),
     spacecraft::Spacecraft=CircularOrbit(50.0km),

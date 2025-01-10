@@ -1,5 +1,6 @@
 using CoRaLS
 using PyPlot
+using Unitful: m, km
 
 
 function test_fresnel_reflection()
@@ -72,4 +73,11 @@ function test_divergence_coefficient()
     ax.grid(which="both", linestyle="dashed")
     ax.legend(loc="upper right")
 
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    test_fresnel_reflection()
+    test_fresnel_transmission()
+    test_divergence_coefficient()
+    plt.show()
 end

@@ -1,4 +1,5 @@
 using CoRaLS
+using Test
 using NumericalIntegration
 using PyPlot
 using LaTeXStrings
@@ -34,7 +35,7 @@ function plot_field_models()
         for inu = 1:length(ν_max)
 
             # plot the FORTE model
-            ax.plot(Ψ, [integrate(regolith_field(FORTE(), energies[iax], deg2rad(ψ), Drego, Dvacuum;
+            ax.plot(Ψ, [integrate(regolith_field(FORTE{GaussianProfile}, energies[iax], deg2rad(ψ), Drego, Dvacuum;
                                                  ν_min=0.0MHz, ν_max=ν_max[inu])...) for ψ in Ψ] ./
                                                      (μV/m) .|> NoUnits,
                     c=colors[inu, :], ls="solid", label="$(Int(ν_max[inu] / MHz)) MHz")
