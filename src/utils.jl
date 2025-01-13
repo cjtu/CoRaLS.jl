@@ -100,15 +100,19 @@ function retrigger(AΩ, trig)
     Rpassed = zeros(length(AΩ.energies) - 1)
 
     # loop over each bin
-    Threads.@threads for i = 1:(length(AΩ.energies)-1)
+    for i = 1:(length(AΩ.energies)-1)
 
         # find all of the events with energies in this bin
         Dinbin = (AΩ.direct.Ecr .>= AΩ.energies[i]) .& (AΩ.direct.Ecr .<= AΩ.energies[i+1])
         Rinbin = (AΩ.reflected.Ecr .>= AΩ.energies[i]) .& (AΩ.reflected.Ecr .<= AΩ.energies[i+1])
 
         # apply the trigger to all these events to calculate those that passed
-        Dpassed[i] = sum(trig.(AΩ.direct[Dinbin]))
-        Rpassed[i] = sum(trig.(AΩ.reflected[Rinbin]))
+        if sum(Dinbin) > 0
+            Dpassed[i] = sum(trig.(AΩ.direct[Dinbin]))
+        end
+        if sum(Rinbin) > 0 
+            Rpassed[i] = sum(trig.(AΩ.reflected[Rinbin]))
+        end
 
     end
 
@@ -116,6 +120,12 @@ function retrigger(AΩ, trig)
     dAΩ = AΩ.gAΩ .* (Dpassed ./ AΩ.ntrials)
     rAΩ = AΩ.gAΩ .* (Rpassed ./ AΩ.ntrials)
 
-    return dAΩ, rAΩ
+    AΩnew = deepcopy(AΩ)
+    AΩnew.dcount = Dpassed
+    AΩnew.rcount = Rpassed
+    AΩnew.dAΩ = dAΩ
+    AΩnew.rAΩ = rAΩ
+
+    return AΩnew
 
 end

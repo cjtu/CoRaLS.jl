@@ -194,19 +194,32 @@ Arguments:
 
 This function generates a line plot illustrating the acceptance rates for both direct and reflected events across different energy levels.
 """
-function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance})
+function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=nothing, name="", 
+                         colorrefl=colorrefl, colordirect=colordirect, kwargs...)
 
     # create the figure
-    fig, ax = plt.subplots(figsize=(4, 4))
+    if ax === nothing
+        fig, ax = plt.subplots(figsize=(4, 4))
+    else
+        fig = gcf()
+    end
 
-
+    if AΩ isa Acceptance
+        ridx = AΩ.rcount .>= min_count
+        didx = AΩ.dcount .>= min_count
+    else
+        ridx = AΩ.rAΩ ./ AΩ.gAΩ .* AΩ.ntrials .>= min_count
+        didx = AΩ.dAΩ ./ AΩ.gAΩ .* AΩ.ntrials .>= min_count
+    end
+    
     # plot the lines
-    ax.plot(18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV),
-        AΩ.dAΩ ./ km^2 ./ sr,
-        color=colordirect, label="Direct")
-    ax.plot(18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV),
-        AΩ.rAΩ ./ km^2 ./ sr,
-        color=colorrefl, label="Reflected")
+    rE = 18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV)
+    ax.plot(rE[ridx], AΩ.rAΩ[ridx] ./ km^2 ./ sr,
+        color=colorrefl, label=name*" Reflected"; kwargs...)
+    dE = 18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV)
+    ax.plot(dE[didx], AΩ.dAΩ[didx] ./ km^2 ./ sr,
+        color=colordirect, label=name*" Direct"; kwargs...)
+    
 
     # and finally pretty it up
     ax.set_axisbelow(true)

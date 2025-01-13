@@ -723,8 +723,7 @@ function compare_beam_center()
             trig = LPDA(Nant=Ns[j], Ntrig=Ntrig[j], θ0=θs[i], SNR=4.0)
 
             # apply the trigger and recalculate the effective area
-            _, AΩeff = retrigger(AΩ, trig)
-
+            AΩeff = retrigger(AΩ, trig).rAΩ
             # and calculate the total number of events
             events[i] = sum( differential_spectrum(AΩ.energies, AΩeff, 2yr) )
 
@@ -799,7 +798,7 @@ function compare_bandwidth()
             trig = LPDA(Nant=4, θ0=-36.0, SNR=4.0, ν_min=ν_mins[j], ν_max=ν_maxs[i])
 
             # apply the trigger and recalculate the effective area
-            _, AΩeff = retrigger(AΩ, trig)
+            AΩeff = retrigger(AΩ, trig).rAΩ
 
             # and calculate the total number of events
             events[i] = 1.5 * sum( differential_spectrum(AΩ.energies, Apsr*AΩeff, 2yr) )
@@ -938,7 +937,7 @@ function scan_altitude_tilt()
                         altitude=altitudes[i])
 
             # retrigger the simulation to get the new effective area
-            _, AΩeff = retrigger(AΩ, trig)
+            AΩeff = retrigger(AΩ, trig).rAΩ
 
             # calculate the number of events
             events[j] = sum(differential_spectrum(AΩ.energies, AΩeff, 2yr))
