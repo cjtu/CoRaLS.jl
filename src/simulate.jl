@@ -36,7 +36,7 @@ This script implements various functions and types for simulating cosmic ray eve
 """
 An enum for possible reasons why the a cosmic ray trial failed.
 """
-@enum TrialFailed TIR = 1 XmaxAfterIce = 2 NoXmax = 3 Upgoing = 4 NotVisible = 5 NotInRegion = 6 NotTriggered = 7
+@enum TrialFailed TIR = 1 XmaxAfterIce = 2 NoXmax = 3 Upgoing = 4 NotVisible = 5 NotInRegion = 6
 
 """
 An enum for possible event geometries (i.e. direct or reflected)
@@ -275,21 +275,6 @@ function propagate_cosmicray(Ecr, surface, SC, trigger;
         divergencemodel=divergencemodel,
         kwargs...)
 
-    # Check if detector triggered, if not, return NotTriggered instead of the whole event struct
-    if direct isa Direct
-        if trigger(direct)
-            direct.triggered = true
-        else
-            direct = NotTriggered
-        end
-    end
-    if reflected isa Reflected
-        if trigger(reflected)
-            reflected.triggered = true
-        else
-            reflected = NotTriggered
-        end
-    end
     return direct, reflected
 end
 

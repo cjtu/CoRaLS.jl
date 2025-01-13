@@ -215,6 +215,23 @@ function create_antenna(fname, skyfrac;
     return trigger
 end # end create_antenna
 
+
+# """
+# Construct the boresight vectors for each antenna spaced evenly in az.
+# """
+# function create_boresight(orientation::EvenAzimuth, Nant, θ0)
+#     ϕ = range(0, 2π, length=Nant + 1)[1:Nant]  # Evenly spaced in azimuth
+#     return spherical_to_cartesian.(π / 2.0 .+ deg2rad(-θ0) * ones(Nant), ϕ, 1)
+# end
+
+# """
+# Construct the boresight vectors for each antenna spaced evenly in az.
+# """
+# function create_boresight(orientation::EvenAzimuth, Nant, θ0)
+#     ϕ = range(0, 2π, length=Nant + 1)[1:Nant]  # Evenly spaced in azimuth
+#     return spherical_to_cartesian.(π / 2.0 .+ deg2rad(-θ0) * ones(Nant), ϕ, 1)
+# end    
+
 # create a model for LPDA's and for ANITA horns
 """
     LPDA(;kwargs...)
