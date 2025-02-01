@@ -27,11 +27,11 @@ Construct an antenna-factor based antenna simulation. This function sets up the 
 # Returns
 - A function that evaluates the antenna trigger condition for a given event.
 """
-function create_antenna(fname, skyfrac;
-    altitude=20.0km,
+function create_antenna(fname;
+    skyfrac=0.03, altitude=20.0km,
     ν_min=150MHz, ν_max=800MHz,
-    σθ=39.1, σϕ=28.4, θ0=-40.0,
-    Nant=8, Ntrig=3, Tlna=60K, Tmoon=85K, SNR=4.0,)
+    σθ=39.1, σϕ=28.4, θ0=-40.0, ϕ0=-1.0,
+    Nant=8, Ntrig=3, Tlna=60K, Tmoon=85K, SNR=4.0)
 
     # current LPDA design is 150-600 MHz
     # ANITA horns are 100-800 MHz
@@ -90,7 +90,11 @@ function create_antenna(fname, skyfrac;
 
     # construct the azimuthal angles given the number of antennas
     ϕ = range(0, 2π, length=Nant + 1)[1:Nant]
-
+    if ϕ0 > 0
+        # If ϕ0 is given, align all antennas along the same azimuthal direction
+        ϕ = ϕ0 * ones(Nant)
+    end
+    
     # construct the boresight vectors for each antenna
     boresight = spherical_to_cartesian.(π / 2.0 .+ deg2rad(-θ0) * ones(Nant), ϕ, 1)
 
@@ -244,7 +248,7 @@ Create a model for the Low-Profile Dipole Array (LPDA) used in cosmic ray detect
 # Returns
 - A configured LPDA antenna model.
 """
-LPDA(; kwargs...) = create_antenna("dualLPDA_antennaFacsV3", 0.03; kwargs...)
+LPDA(; kwargs...) = create_antenna("dualLPDA_antennaFacsV3"; kwargs...)
 
 """
     ANITA(;kwargs...)
@@ -257,4 +261,4 @@ Create a model for the ANtarctic Impulsive Transient Antenna (ANITA) used in cos
 # Returns
 - A configured ANITA antenna model.
 """
-ANITA(; kwargs...) = create_antenna("ANITA_antennaFacs", 0.03; ν_min=150MHz, ν_max=800MHz, kwargs...)
+ANITA(; kwargs...) = create_antenna("ANITA_antennaFacs"; ν_min=150MHz, ν_max=800MHz, kwargs...)

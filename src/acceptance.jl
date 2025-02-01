@@ -56,7 +56,7 @@ function acceptance(ntrials::Int, nbins::Int;
     rcount = zeros(Int, nbins)
     dfailed = zeros(Int, nbins, length(instances(TrialFailed)))
     rfailed = zeros(Int, nbins, length(instances(TrialFailed)))
-    tries = ones(Int, nbins) .* max_tries
+    tries_left = ones(Int, nbins) .* max_tries  # Num times to retry remaining
     devents = StructArray{Direct}(undef, 0)
     revents = StructArray{Reflected}(undef, 0)
     energies = (10.0 .^ range(log10(min_energy / 1.0EeV), log10(max_energy / 1.0EeV), length=nbins + 1))EeV
@@ -65,7 +65,7 @@ function acceptance(ntrials::Int, nbins::Int;
 
     @showprogress 1 "Simulating..." for bin = 1:nbins
         # Run acceptance loop at least once, retry if min_count not met up to max_tries times
-        while tries[bin] > 0 && (tries[bin] == max_tries || dcount[bin] < min_count)
+        while tries_left[bin] > 0 && (tries_left[bin] == max_tries || dcount[bin] < min_count)
             # loop over the number of trials in this bin
             for i = 1:ntrials
                 # throw a random cosmic ray trial and get the signal at the payload
@@ -91,7 +91,7 @@ function acceptance(ntrials::Int, nbins::Int;
                     save_events && push!(revents, reflected)
                 end
             end # end ntrials loop
-            tries[bin] -= 1
+            tries_left[bin] -= 1
         end # end retry loop
     end # end nbins loop
 
@@ -99,7 +99,7 @@ function acceptance(ntrials::Int, nbins::Int;
     #  factor of pi from integral(cos(theta)) possible angles of incoming CRs
     #  factor for area is whole moon (cosmic rays sampled from full Moon sphere)
     #  all other acceptance factors are computed by rejection (visibility, triggering, etc)
-    ntrials_per_bin = ntrials .* (max_tries .- tries)
+    ntrials_per_bin = ntrials .* (max_tries .- tries_left)
     gAΩ = pi * sr * region_area(WholeMoonRegion())  # [km^2 sr]
     dAΩ = gAΩ .* (dcount ./ ntrials_per_bin)  # [km^2 sr]
     rAΩ = gAΩ .* (rcount ./ ntrials_per_bin)  # [km^2 sr]
