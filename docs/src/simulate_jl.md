@@ -1,19 +1,8 @@
-# simulate.jl: The Main Cosmic Ray Simulation Script
+# simulate.jl: Main Cosmic Ray Simulation
 
-`simulate.jl` implements various functions and types for simulating cosmic ray events and their corresponding radio frequency (RF) signals.
+The `simulate.jl` module simulates cosmic ray events and progates the RF signal through the regolith.
 
-## Main Components
-
-```@docs
-CoRaLS.throw_cosmicray
-CoRaLS.compute_direct
-CoRaLS.compute_reflected
-CoRaLS.Reflected
-CoRaLS.Direct
-CoRaLS.AbstractSignal
-CoRaLS.ScalarGeometry
-CoRaLS.VectorGeometry
-CoRaLS.GeometryImplementation
-CoRaLS.EventGeometry
-CoRaLS.TrialFailed
+```@autodocs
+Modules = [CoRaLS]
+Pages = ["simulate.jl"]
 ```

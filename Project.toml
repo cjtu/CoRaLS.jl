@@ -24,7 +24,6 @@ ToggleableAsserts = "07ecc579-1b30-493c-b961-3180daf6e3ae"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
-JLD2 = "0.5.11"
 julia = "1"
 
 [extras]

@@ -1,3 +1,8 @@
+""" 
+Note (2025/02/02): This is no longer applicable since shifting to new orbital 
+and regional sampling strategy (see geometry.jl).
+"""
+
 # This file implements several *toy* MCs to evaluate the geometric
 # acceptance of various different sampling strategies for CoRaLS
 # i.e. the original "non-orbiting" one against newer "orbital" strategies

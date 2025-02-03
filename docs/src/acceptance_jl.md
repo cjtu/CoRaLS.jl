@@ -1,12 +1,8 @@
 # acceptance.jl: The Main Monte Carlo Loop
 
-The `acceptance.jl` is part of the `CoRaLS` module and contains functions and structures for calculating the acceptance of the system for sub-surface Ultra-High-Energy Cosmic Ray (UHECR) reflections from ice. It also includes utilities for analyzing trials and computing differential spectra.
+The main `acceptance()` loop computes many cosmic ray impacts to a supplied region of the lunar surface and observed with a chosen spacecraft and triggering method, returning an `Acceptance` object containing the number of detected events and final acceptance in [$km^2$ sr] units.
 
-## Main Components
-
-```@docs
-CoRaLS.Acceptance
-CoRaLS.acceptance
-CoRaLS.trials_passed
-CoRaLS.differential_spectrum
+```@autodocs
+Modules = [CoRaLS]
+Pages = ["acceptance.jl"]
 ```

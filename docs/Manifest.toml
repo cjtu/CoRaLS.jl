@@ -96,7 +96,7 @@ weakdeps = ["SparseArrays"]
     ChainRulesCoreSparseArraysExt = "SparseArrays"
 
 [[deps.CoRaLS]]
-deps = ["DelimitedFiles", "Distributions", "Interpolations", "LinearAlgebra", "NPZ", "NumericalIntegration", "Optim", "Parameters", "ProgressMeter", "PyPlot", "Random", "Reexport", "Rotations", "StaticArrays", "StructArrays", "ToggleableAsserts", "Unitful"]
+deps = ["DelimitedFiles", "Distributions", "Interpolations", "JLD2", "LinearAlgebra", "NPZ", "NumericalIntegration", "Optim", "Parameters", "ProgressMeter", "PyPlot", "Random", "Reexport", "Rotations", "StaticArrays", "StructArrays", "ToggleableAsserts", "Unitful"]
 path = ".."
 uuid = "9de490ff-36bf-45aa-ac77-c1e4634bf958"
 version = "0.2.0"
@@ -375,6 +375,12 @@ version = "0.2.2"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "PrecompileTools", "Requires", "TranscodingStreams"]
+git-tree-sha1 = "91d501cb908df6f134352ad73cde5efc50138279"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.5.11"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]

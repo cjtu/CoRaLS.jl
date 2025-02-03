@@ -1,8 +1,6 @@
 # CoRaLS
 
-<!-- [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://rprechelt.github.io/CoRaLS.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://rprechelt.github.io/CoRaLS.jl/dev)
-[![Build Status](https://github.com/rprechelt/CoRaLS.jl/workflows/CI/badge.svg)](https://github.com/rprechelt/CoRaLS.jl/actions) -->
+The `CoRaLS` (Cosmic Ray Lunar Sounder) module is designed for computing acceptance rates from cosmic ray interactions in lunar regolith.
 
 ## Installation
 
@@ -97,4 +95,4 @@ julia --project=docs/ -e 'using LiveServer; serve(dir="docs/build")'
 
 ## Citing
 
-See [`CITATION.bib`](CITATION.bib) for the relevant reference(s).
+Paper coming soon.
