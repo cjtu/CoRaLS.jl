@@ -1,4 +1,5 @@
 using PyPlot
+using Unitful: m, km
 
 const colordirect = "#F88D07"
 const colorrefl = "#0772F8"
@@ -28,7 +29,7 @@ Generates a two-part plot. The left plot shows histograms of incident angles at 
 function plot_incident_angles(AΩ::Union{Acceptance, OldAcceptance})
 
     # create the figure
-    fig, axes = plt.subplots(1, 2, figsize=(7, 3))
+    fig, axes = plt.subplots(1, 2, figsize=(8, 3))
 
     # the bins for the tx histogram
     bins = 0:1:90
@@ -66,8 +67,8 @@ function plot_incident_angles(AΩ::Union{Acceptance, OldAcceptance})
     Nreg = regolith_index(StrangwayIndex(), 6.0m)
     Nice = 1.305
     Θ = 0.0:0.01:rad2deg(asin(Nice / Nreg)) # incident angles at the ice
-    rpar = [fresnel_coeffs[1] for θ in deg2rad.(Θ)]
-    rperp = [fresnel_coeffs[2] for θ in deg2rad.(Θ)]
+    rpar = [fresnel_coeffs(θ, Nreg, Nice)[1] for θ in deg2rad.(Θ)]
+    rperp = [fresnel_coeffs(θ, Nreg, Nice)[2] for θ in deg2rad.(Θ)]
 
     # plot the reflection coefficients behind
     raxes[2].plot(Θ, abs.(rpar), alpha=0.6, zorder=0,
@@ -91,10 +92,9 @@ function plot_incident_angles(AΩ::Union{Acceptance, OldAcceptance})
     axes[2].set_ylabel("Event Density")
     raxes[2].set_ylabel("Fresnel Coeff.")
 
-    # leends
-    axes[1].legend(loc="center left")
+    # legends
+    axes[1].legend(loc="lower left")
     raxes[2].legend(loc="upper left")
-
 
     # grids
     [ax.set_axisbelow(true) for ax in axes]
@@ -165,19 +165,20 @@ function plot_offaxis_angle(AΩ::Union{Acceptance, OldAcceptance})
     fig, ax = plt.subplots(figsize=(4, 4))
 
     # plot the histograms
-    ax.hist(AΩ.direct.ψ, histtype="step", color=colordirect, alpha=0.3)
-    ax.hist(AΩ.reflected.ψ, histtype="step", color=colorrefl, alpha=0.3)
-    ax.hist(AΩ.direct.ψ[AΩ.direct.triggered.==true],
-        histtype="step", color=colordirect, label="Direct")
+    ax.hist(AΩ.reflected.ψ, histtype="step", color=colorrefl, alpha=0.3, label="Reflected (all)")
+    ax.hist(AΩ.direct.ψ, histtype="step", color=colordirect, alpha=0.3, label="Direct (all)")
     ax.hist(AΩ.reflected.ψ[AΩ.reflected.triggered.==true],
-        histtype="step", color=colorrefl, label="Reflected")
+        histtype="step", color=colorrefl, label="Reflected (trig)")
+    ax.hist(AΩ.direct.ψ[AΩ.direct.triggered.==true],
+        histtype="step", color=colordirect, label="Direct (trig)")
 
     # and make it pretty
     ax.set(xlabel="Off-Axis Angle [deg]", ylabel="Counts",
         xticks=[0.0, 30.0, 60.0, 90.0, 120.0, 150.0, 180.0],
         yscale="log", xlim=[0.0, 180.0])
 
-    ax.legend(loc="upper right")
+    ax.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left",
+              mode="expand", borderaxespad=0, ncol=2)
     ax.set_axisbelow(true)
     ax.grid(which="both", linestyle="dashed")
 

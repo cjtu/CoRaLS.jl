@@ -54,7 +54,7 @@ export psr_area, psr_fraction
 export acceptance, differential_spectrum, trials_passed, old_acceptance, save_acceptance, load_acceptance, merge_acceptance
 
 # exports from plots.jl
-export plot_differential_spectrum, plot_offaxis_angle, plot_acceptance
+export plot_differential_spectrum, plot_incident_angles, plot_polarization_angle, plot_offaxis_angle, plot_acceptance
 
 # import all of our code
 include("constants.jl")
