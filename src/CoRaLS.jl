@@ -78,7 +78,7 @@ export magnitude_trigger, gaussian_trigger, rician_trigger, trigger_all
 export psr_area, psr_fraction
 
 # exports from acceptance.jl
-export acceptance, differential_spectrum, trials_passed, old_acceptance
+export acceptance, differential_spectrum, trials_passed, old_acceptance, save_acceptance, load_acceptance, merge_acceptance
 
 # exports from plots.jl
 export plot_differential_spectrum, plot_offaxis_angle, plot_acceptance

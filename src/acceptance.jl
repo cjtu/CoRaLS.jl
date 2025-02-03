@@ -1,3 +1,4 @@
+using JLD2
 using ProgressMeter
 """
     acceptance.jl
@@ -49,6 +50,7 @@ function acceptance(ntrials::Int, nbins::Int;
     min_count=10,
     max_tries=1,
     save_events=false,
+    savefile="",
     kwargs...
     )
     # Init arrays
@@ -104,7 +106,13 @@ function acceptance(ntrials::Int, nbins::Int;
     dAΩ = gAΩ .* (dcount ./ ntrials_per_bin)  # [km^2 sr]
     rAΩ = gAΩ .* (rcount ./ ntrials_per_bin)  # [km^2 sr]
 
-    return Acceptance(ntrials_per_bin, region, spacecraft, energies, gAΩ, dAΩ, rAΩ, dcount, rcount, instances(TrialFailed), dfailed, rfailed, devents, revents)
+    AΩ = Acceptance(ntrials_per_bin, region, spacecraft, energies, gAΩ, dAΩ, rAΩ, dcount, rcount, instances(TrialFailed), dfailed, rfailed, devents, revents)
+    
+    if !isempty(savefile)
+        save_acceptance(AΩ, savefile)
+    end
+
+    return AΩ
 end
 
 
@@ -261,4 +269,59 @@ function differential_spectrum(energies, AΩ, T)
 
     # and we are done
     return spectrum
+end
+
+# I/O helpers
+"""
+    save_acceptance(A::Acceptance, filename::String)
+
+Save the acceptance data to a file (only .jld2 supported).
+"""
+function save_acceptance(A::Acceptance, filename::String)
+    if filename[end-4:end] != ".jld2"
+        throw("Only .jld2 supported.")
+    end
+    @save filename A
+end
+
+"""
+    load_acceptance(filename::String)::Acceptance
+
+Load the acceptance data from a .jld2 file.
+"""
+function load_acceptance(filename::String)::Acceptance
+    @load filename A
+    return A
+end
+
+"""
+    merge_acceptance(A::Acceptance, B::Acceptance)::Acceptance
+
+Merge two Acceptance structures into one, combining their trial counts and results.
+"""
+function merge_acceptance(A::Acceptance, B::Acceptance)
+
+    # Check if Acceptance structs are compatible
+    # TODO: need to include more metadata in struct to say this for certain
+    if !((A.region == B.region) &  
+        (A.spacecraft == B.spacecraft) &
+        (A.energies == B.energies) &
+        (A.gAΩ == B.gAΩ) & 
+        (A.failtypes == B.failtypes))
+        throw("Acceptances not compatible.")
+    end
+
+    C = deepcopy(A)
+    C.ntrials = A.ntrials .+ B.ntrials
+    C.dcount = A.dcount .+ B.dcount
+    C.rcount = A.rcount .+ B.rcount
+    C.dfailed = A.dfailed .+ B.dfailed
+    C.rfailed = A.rfailed .+ B.rfailed
+    C.direct = vcat(A.direct, B.direct)
+    C.reflected = vcat(A.reflected, B.reflected)
+
+    # Compute new acceptance from combined ntrials and counts
+    C.dAΩ = C.gAΩ .* (C.dcount ./ C.ntrials)
+    C.rAΩ = C.gAΩ .* (C.rcount ./ C.ntrials)
+    return C
 end
