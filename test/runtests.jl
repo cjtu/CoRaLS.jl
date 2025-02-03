@@ -7,6 +7,7 @@ using Test
 # Random.seed!(SEED)
 
 @testset "All Tests" begin
+    include("ut_acceptance.jl");
     include("ut_geometry.jl");
     include("ut_fresnel.jl");
     include("ut_ice.jl");    
