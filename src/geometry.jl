@@ -128,6 +128,12 @@ struct CircularOrbit <: Spacecraft
     altitude::typeof(1.0km)
 end
 
+struct EllipticalOrbit <: Spacecraft
+    periapse::typeof(1.0km)
+    apoapse::typeof(1.0km)
+    inclination::Float64
+end
+
 struct SampledOrbit <: Spacecraft
     latlonalt
 end
@@ -137,8 +143,14 @@ function create_spacecraft(config::String)
         lat, lon, alt = parse.(Float64, split(config[7:end], ","))
         return FixedPlatform(lat, lon, alt * km)
     elseif startswith(config, "orbit:")
-        alt = parse(Float64, split(config, ":")[2])
-        return CircularOrbit(alt * km)  # TODO: strip km from end if given
+        alt = uparse(split(config, ":")[2])
+        return CircularOrbit(alt)
+    elseif startswith(config, "elliptical:")
+        pai = split(split(config, ":")[2], ",")
+        periapse = uparse(pai[1])
+        apoapse = uparse(pai[2])
+        inclination = parse(Float64, pai[3])
+        return EllipticalOrbit(periapse, apoapse, inclination)
     elseif startswith(config, "file:")
         filename = config[6:end]
         return parse_orbit(filename)
@@ -172,6 +184,11 @@ end
 
 function get_position(spacecraft::CircularOrbit)
     return random_point_on_cicular_orbit(Rmoon + spacecraft.altitude)
+end
+
+function get_position(spacecraft::EllipticalOrbit)
+    return random_point_on_elliptical_orbit(
+        spacecraft.periapse, spacecraft.apoapse, spacecraft.inclination; rbody=Rmoon)
 end
 
 function get_position(spacecraft::SampledOrbit)
@@ -211,6 +228,72 @@ function random_point_on_cicular_orbit(r=Rmoon)
     λ = 2π * rand() # Longitude uniform on [0, 2π]
     return spherical_to_cartesian(φ, λ, r)
 end
+
+"""
+    random_point_on_elliptical_orbit(periapse, apoapse, inclination; rbody=Rmoon)
+
+Return cartesian vector to spacecraft on an elliptical orbit.
+
+Parameters:
+- periapse: minimum altitude above reference body surface
+- apoapse: maximum altitude above reference body surface
+- inclination: orbital inclination in degrees
+- rbody: radius of the central body (default: Rmoon)
+
+Note: This samples uniformly in true anomaly which gives a non-uniform
+distribution of points along the orbit (points are more densely distributed
+near periapse than apoapse, which is physically correct for constant
+angular momentum).
+"""
+function random_point_on_elliptical_orbit(periapse, apoapse, inclination; rbody=Rmoon)
+    # Convert altitudes to radii from center
+    rp = periapse + rbody
+    ra = apoapse + rbody
+    
+    # Calculate orbital elements
+    a = (rp + ra) / 2  # semi-major axis
+    e = (ra - rp) / (ra + rp)  # eccentricity
+    
+    # Generate random true anomaly (θ)
+    θ = 2π * rand()
+    
+    # Calculate radius at this true anomaly
+    r = a * (1 - e^2) / (1 + e * cos(θ))
+    
+    # Generate random position in orbital plane
+    x_orbit = r * cos(θ)
+    y_orbit = r * sin(θ)
+    z_orbit = 0.0km
+    
+    # Rotate by inclination around x-axis
+    inc = deg2rad(inclination)
+    x = x_orbit
+    y = y_orbit * cos(inc) - z_orbit * sin(inc)
+    z = y_orbit * sin(inc) + z_orbit * cos(inc)
+    
+    # Add random rotation around z-axis for the longitude of ascending node (Ω)
+    Ω = 2π * rand()
+    x_final = x * cos(Ω) - y * sin(Ω)
+    y_final = x * sin(Ω) + y * cos(Ω)
+    z_final = z
+    
+    
+    return SVector{3}([x_final, y_final, z_final])
+end
+
+"""
+Return cartesian vector to spacecraft at altitude.
+
+Note: this samples uniformly in latitude which does not give uniformly
+distributed points on the sphere (overdensity of points on the poles which 
+is expected for circular polar orbits).
+"""
+function random_point_on_elliptical_orbit(r=Rmoon)
+    φ = π * rand()  # Co-latitute uniform on [0, π]
+    λ = 2π * rand() # Longitude uniform on [0, 2π]
+    return spherical_to_cartesian(φ, λ, r)
+end
+
 """
     random_north_pole_point()
 
@@ -286,13 +369,23 @@ function cartesian_to_spherical(point::SVector{3})
 end
 
 """
-Convert a cartesian point (x, y, z) into (lat, lon)).
+Convert a cartesian point (x, y, z) into (lat, lon).
 """
 function cartesian_to_latlon(point::SVector{3})
     x, y, z = point
     lat = rad2deg(asin(z / norm(point)))
     lon = rad2deg(atan(y, x))
     return lat, lon
+end
+
+"""
+Helper function to convert orbital position (x, y, z) to (lat, lon, altitude).
+"""
+function cartesian_to_latlonalt(point::SVector{3}; rbody=Rmoon)
+    lat, lon = cartesian_to_latlon(point)
+    r = norm(point)
+    altitude = r - rbody
+    return lat, lon, altitude
 end
 
 """

@@ -3,6 +3,9 @@ using PyPlot
 using Unitful: eV, km, sr, yr, ustrip
 using Test
 using LinearAlgebra
+using Random
+
+Random.seed!(20250210)
 
 function spherical_to_cartesian(theta, phi, r)
     return (r * [sin(theta) * cos(phi),
@@ -53,20 +56,52 @@ function plot_orbit_circular()
     fig = plt.figure(figsize=(8, 8))
 
     ntrials = 1000
-    orbit = create_spacecraft("orbit:50")
+    orbit = create_spacecraft("orbit:50km")
     ax = fig.add_subplot(111, projection="3d")            
     SCs = [get_position(orbit) for _ in 1:ntrials] ./ km
-    
-    for sc in SCs
-        sc = normalize(sc)
-        ax.scatter(sc[1], sc[2], sc[3], color="k", s=20, alpha=0.5)
-    end
-    ax.set_xlim([-1,1])
-    ax.set_ylim([-1,1])
-    ax.set_zlim([-1,1])
+    _ = [ax.scatter(sc..., color="k", s=20, alpha=0.5) for sc in SCs]
     ax.set_aspect("equal")
     plt.tight_layout()
     fig.savefig("$(@__DIR__)/../figs/orbit_circular.png")
+end
+
+function plot_orbit_elliptical()
+
+    # Plot
+    rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    rcParams["axes.axisbelow"] = true
+    rcParams["axes.grid"] = true
+    rcParams["grid.linestyle"] = "dashed"
+    rcParams["xtick.direction"] = "in"
+    rcParams["ytick.direction"] = "in"
+    
+    fig = plt.figure(figsize=(8, 14))
+    fig.suptitle("Periapse:3000km, Apoapse:8000km, inc:30°", fontsize=16)
+
+    ntrials = 1000
+    orbit = create_spacecraft("elliptical:3000km,8000km,30.0")
+    SCs = [get_position(orbit) for _ in 1:ntrials] ./ km
+
+    # Side profile
+    ax = fig.add_subplot(311, projection="3d") 
+    ax.view_init(elev=0, azim=25)           
+    _ = [ax.scatter(sc..., color="k", s=20, alpha=0.5) for sc in SCs]
+    ax.set_aspect("equal")
+
+    # Oblique view
+    ax = fig.add_subplot(312, projection="3d") 
+    ax.view_init(elev=30, azim=25)           
+    _ = [ax.scatter(sc..., color="k", s=20, alpha=0.5) for sc in SCs]
+    ax.set_aspect("equal")
+
+    # Oblique view
+    ax = fig.add_subplot(313, projection="3d") 
+    ax.view_init(elev=90, azim=0)           
+    _ = [ax.scatter(sc..., color="k", s=20, alpha=0.5) for sc in SCs]
+    ax.set_aspect("equal")
+
+    plt.tight_layout()
+    fig.savefig("$(@__DIR__)/../figs/orbit_elliptical.png")
 end
 
 
@@ -97,4 +132,5 @@ function plot_spherical_sampling()
 end
 plot_orbit_sampling()
 plot_orbit_circular()
+plot_orbit_elliptical()
 plot_spherical_sampling()
