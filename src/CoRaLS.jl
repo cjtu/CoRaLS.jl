@@ -7,8 +7,8 @@ using Unitful: g, cm, m, km, sr, μV, V, eV, GeV, EeV, Hz, MHz, W, K, NoUnits
 
 # exports from geometry.jl
 export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area, random_point_on_sphere
-export WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, SouthPolePSR, NorthPolePSR, AllPSR, create_region, is_in_region, region_area, parse_orbit
-export FixedPlatform, CircularOrbit, SampledPositions, create_spacecraft, get_position
+export Region, WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, SouthPolePSR, NorthPolePSR, AllPSR, create_region, is_in_region, region_area, parse_orbit
+export Spacecraft, FixedPlatform, CircularOrbit, SampledPositions, create_spacecraft, get_position
 
 # exports from spectrum.jl
 export auger_spectrum_2021, auger_spectrum_2020, auger_spectrum, sample_auger, yr, cr_spectrum
@@ -45,13 +45,16 @@ export LPDA, ANITA
 export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry
 
 # exports from trigger.jl
-export magnitude_trigger, gaussian_trigger, rician_trigger, trigger_all
+export magnitude_trigger, gaussian_trigger, rician_trigger, trigger_all, trigger_received
 
 # exports from moon.jl
 export psr_area, psr_fraction
 
 # exports from acceptance.jl
 export acceptance, differential_spectrum, trials_passed, old_acceptance, save_acceptance, load_acceptance, merge_acceptance
+
+# exports from acceptance_carlo.jl
+export MC
 
 # exports from plots.jl
 export plot_differential_spectrum, plot_incident_angles, plot_polarization_angle, plot_offaxis_angle, plot_acceptance
@@ -73,6 +76,7 @@ include("raytrace.jl")
 include("simulate.jl")
 include("detector.jl")
 include("acceptance.jl")
+include("acceptance_carlo.jl")
 include("surface.jl")
 include("plots.jl")
 

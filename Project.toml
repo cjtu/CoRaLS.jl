@@ -4,8 +4,10 @@ authors = ["C. J. Tai Udovicic <cjtu@hawaii.edu>", "R. Prechelt <prechelt@hawaii
 version = "0.2.1"
 
 [deps]
+Carlo = "780c37f4-4e5a-43de-9e79-65c261e525a4"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -24,6 +26,8 @@ ToggleableAsserts = "07ecc579-1b30-493c-b961-3180daf6e3ae"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
+Carlo = "0.2.3"
+HDF5 = "0.17.2"
 julia = "1"
 
 [extras]
