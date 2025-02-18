@@ -122,8 +122,17 @@ end
 """
     trigger_all()
 
-Always triggers. Used for testing geometric acceptance and debugging.
+Always triggers. Used for testing and debugging.
 """
 function trigger_all()
     return event -> true
+end
+
+"""
+    trigger_received()
+
+Always triggers. Used for testing geometric acceptance and debugging.
+"""
+function trigger_received()
+    return event -> !isa(event, TrialFailed)
 end

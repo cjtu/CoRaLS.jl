@@ -142,7 +142,7 @@ Simulate a single cosmic ray trial with a given energy.
 This calculates the field at the payload for the direct and reflected emission,
 (if they exist) and returns whether the event triggered.
 """
-function throw_cosmicray(Ecr, trigger, region, spacecraft; kwargs...)
+function throw_cosmicray(Ecr, region, spacecraft; kwargs...)
     surface = random_point_on_sphere(Rmoon)
     SC = get_position(spacecraft)
     if !is_visible(surface, SC)
@@ -150,7 +150,7 @@ function throw_cosmicray(Ecr, trigger, region, spacecraft; kwargs...)
     elseif !is_in_region(surface, region)
         return (NotInRegion, NotInRegion)
     end
-    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs...)
+    return propagate_cosmicray(Ecr, surface, SC; kwargs...)
 end
 
 
@@ -160,7 +160,7 @@ Simulate a single cosmic ray trial with a given energy.
 This calculates the field at the payload for the direct and reflected emission,
 (if they exist) and returns whether the event triggered.
 """
-function throw_cosmicray(Ecr, trigger; altitude=20.0km, kwargs...)
+function throw_cosmicray(Ecr; altitude=20.0km, kwargs...)
 
     # get the maximum angle that we sample CR impact points from
     θmax = -horizon_angle(altitude)
@@ -212,13 +212,13 @@ function throw_cosmicray(Ecr, trigger; altitude=20.0km, kwargs...)
     # if this point is not within the horizon of the SC, then we can't see it.
     # abs(θ - θsc) > θmax && return (NotVisible, NotVisible)
     abs(Δσ) > θmax && return (NotVisible, NotVisible)
-    return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs...)
+    return propagate_cosmicray(Ecr, surface, SC; kwargs...)
 end
 
 """
 Propagate cosmic ray into surface and compute direct and reflected RF.
 """
-function propagate_cosmicray(Ecr, surface, SC, trigger;
+function propagate_cosmicray(Ecr, surface, SC;
     ice_depth=5m,
     geometrymodel=ScalarGeometry(),
     indexmodel=StrangwayIndex(), fieldmodel=ARW(),
