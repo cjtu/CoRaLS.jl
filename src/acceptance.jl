@@ -43,6 +43,7 @@ Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involv
 """
 function acceptance(ntrials::Int, nbins::Int; 
     region::Region=PolarRegion(:south, 10),
+    precise_area=false,
     spacecraft::Spacecraft=CircularOrbit(50.0km),
     trigger=magnitude_trigger(100μV / m),
     min_energy=0.1EeV,
@@ -50,6 +51,7 @@ function acceptance(ntrials::Int, nbins::Int;
     min_count=10,
     max_tries=1,
     save_events=false,
+    simple_area=false,
     savefile="",
     kwargs...
     )
@@ -71,7 +73,9 @@ function acceptance(ntrials::Int, nbins::Int;
             # loop over the number of trials in this bin
             for i = 1:ntrials
                 # throw a random cosmic ray trial and get the signal at the payload
-                direct, reflected = throw_cosmicray(sample_auger(energies[bin], energies[bin+1]), trigger, region, spacecraft; kwargs...)
+                direct, reflected = throw_cosmicray(
+                    sample_auger(energies[bin], energies[bin+1]), 
+                    trigger, region, spacecraft, simple_area; kwargs...)
                 if direct isa TrialFailed
                     dfailed[bin, Int(direct)] += 1
                 else
@@ -103,6 +107,9 @@ function acceptance(ntrials::Int, nbins::Int;
     #  all other acceptance factors are computed by rejection (visibility, triggering, etc)
     ntrials_per_bin = ntrials .* (max_tries .- tries_left)
     gAΩ = pi * sr * region_area(WholeMoonRegion())  # [km^2 sr]
+
+    # If simple_area, approximate the collection area as the area of the region
+    #  
     dAΩ = gAΩ .* (dcount ./ ntrials_per_bin)  # [km^2 sr]
     rAΩ = gAΩ .* (rcount ./ ntrials_per_bin)  # [km^2 sr]
 

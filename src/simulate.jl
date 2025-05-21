@@ -142,13 +142,19 @@ Simulate a single cosmic ray trial with a given energy.
 This calculates the field at the payload for the direct and reflected emission,
 (if they exist) and returns whether the event triggered.
 """
-function throw_cosmicray(Ecr, trigger, region, spacecraft; kwargs...)
-    surface = random_point_on_sphere(Rmoon)
+function throw_cosmicray(Ecr, trigger, region, spacecraft, simple_area; kwargs...)
     SC = get_position(spacecraft)
-    if !is_visible(surface, SC)
-        return (NotVisible, NotVisible)
-    elseif !is_in_region(surface, region)
-        return (NotInRegion, NotInRegion)
+    if simple_area
+        lat, lon, alt = cartesian_to_latlonalt(SC)
+        hθ = horizon_angle(alt)
+        surface = random_point_in_region()
+    else
+        surface = random_point_on_sphere(Rmoon)
+        if !is_visible(surface, SC)
+            return (NotVisible, NotVisible)
+        elseif !is_in_region(surface, region)
+            return (NotInRegion, NotInRegion)
+        end
     end
     return propagate_cosmicray(Ecr, surface, SC, trigger; kwargs...)
 end
