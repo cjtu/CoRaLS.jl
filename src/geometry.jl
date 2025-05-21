@@ -6,30 +6,67 @@ using Parameters
 using Unitful
 import Unitful: km
 
-"""
-Spherical approximation to the polar radius of the Moon.
-"""
 const Rmoon = 1737.4km
 
-# Define Moon region types and functions
-abstract type Region end
+# AOI: Area of Interest defines the location of a Regions. Used for determining is_in_region()
+abstract type AreaOfInterest end
 
-struct WholeMoonRegion <: Region end
+struct Quadrangle <: AreaOfInterest
+    min_lat::Float64
+    max_lat::Float64
+    min_lon::Float64
+    max_lon::Float64
+end
 
-struct CircularRegion <: Region
+abstract type Pole <: AreaOfInterest end
+struct SouthPole <: Pole
+    max_lat::Float64
+end
+
+struct NorthPole <: Pole
+    min_lat::Float64
+end
+
+struct Circle <: AreaOfInterest
     center_lat::Float64
     center_lon::Float64
     radius::typeof(1.0km)
 end
 
-@with_kw struct PolarRegion <: Region
-    pole::Symbol = :south  # :north or :south
-    angle::Float64 = 10  # degrees from pole
+struct SphericalCap <: AreaOfInterest
+    center_lat::Float64
+    center_lon::Float64
+    dlat::Float64  # Cap radius (max_lat = center_lat + dlat; min_lat = center_lat - dlat)
 end
 
-struct CustomRegion <: Region
+# Define region types and functions
+#  Regions define contiguous locations on the Moon defined by some solid angle in lat / lon space
+#  Assigning an Area of Interest within the Region will limit sampling to that fractional area
+#  Note: AOIs are assumed to be isotropic throughout the region and supplied as the fraction: Area(AOI) / Area(Region)
+#  This approximation is used for Permanantly Shadowed Craters (AOIs) within PolarRegions
+#  If the given orbit spends similar amounts of time over the the polar region (e.g. 80S - 90S), an isotropic AOI is ok
+#  Do not use AOIs where strong biases exist in spatial distribution within the region and orbit. 
+#    E.g., using an AOI for PSRs relative to the WholeMoonRegion would under-count for polar orbits that spend more time at the poles where PSRs are actually found
+abstract type AbstractRegion end
+
+@with_kw struct WholeMoonRegion <: AbstractRegion 
+    aoi_frac::Float64 = 1.
+end
+
+@with_kw struct PolarRegion <: AbstractRegion 
+    aoi::Pole = SouthPole(-80)
+    aoi_frac::Float64 = 1.
+end
+
+@with_kw struct Region <: AbstractRegion
+    aoi::AreaOfInterest
+    aoi_frac::Float64 = 1.
+end
+
+struct CustomRegion <: AbstractRegion
     criteria::Function
-    area::typeof(1.0km^2)  # must be in [km^2]
+    aoi_frac::Float64
+    surface_area::typeof(1.0km^2)  # [km^2]
 end
 
 # PSR Definitions from the following paper giving PSR area in south and north.
@@ -38,64 +75,95 @@ end
 #  TODO: to improve accuracy, could update this to lookup table of lat/lons in PSRs
 
 # South pole: 5.57% of area < -80 degrees is PSR (16055 km^2)
-SouthPolePSR = (prob=0.0557, area=1.6055e4km^2) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
+# SouthPolePSR = (prob=0.0557, area=1.6055e4km^2) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
+SouthPolePSR = PolarRegion(SouthPole(-80), aoi_frac=0.0557)
 
 # North pole: 4.46% of area > 80 degrees is PSR (12866 km^2)
-NorthPolePSR = (prob=0.0446, area=1.2866e4km^2) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
+# NorthPolePSR = (prob=0.0446, area=1.2866e4km^2) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
+NorthPolePSR = PolarRegion(NorthPole(80), aoi_frac=0.0446)
 
 # Both poles: 5.02% of area within 10 degrees of either pole is PSR (28921 km^2)
-AllPSR = (prob=0.0502, area=2.8921e4km^2) -> CustomRegion((lat, lon)->(abs(lat) >= 80) && rand() < prob, area)
+AllPSR = CustomRegion((lat, lon)->(abs(lat) >= 80), 0.0502, 2.8921e4km^2)
+# AllPSR = [SouthPolePSR(), NorthPolePSR()]  # TODO: implement list of regions
 
 function create_region(config::String)
     config = lowercase(config)
     if config == "whole_moon"
         return WholeMoonRegion()
-    elseif startswith(config, "circular:")
-        lat, lon, radius = parse.(Float64, split(config[10:end], ","))
-        return CircularRegion(lat, lon, radius)
+    elseif startswith(config, "quad:")
+        # Format: "quad:min_lat,max_lat,min_lon,max_lon,aoi_frac(optional)"
+        vals = parse.(Float64, split(config[6:end], ","))
+        aoi = Quadrangle(vals[1], vals[2], vals[3], vals[4])
+        aoi_frac = length(vals) >= 5 ? vals[5] : 1.0
+        return Region(aoi, aoi_frac)
+    elseif startswith(config, "cap:")
+        # Format: "cap:center_lat,center_lon,dlat,aoi_frac(optional)"
+        vals = parse.(Float64, split(config[5:end], ","))
+        aoi = SphericalCap(vals[1], vals[2], vals[3])
+        aoi_frac = length(vals) >= 4 ? vals[4] : 1.0
+        return Region(aoi, aoi_frac)
+    elseif startswith(config, "circle:")
+        # Format: "circle:center_lat,center_lon,radius_km,aoi_frac(optional)"
+        vals = parse.(Float64, split(config[8:end], ","))
+        aoi = Circle(vals[1], vals[2], vals[3]*km)
+        aoi_frac = length(vals) >= 4 ? vals[4] : 1.0
+        return Region(aoi, aoi_frac)
     elseif startswith(config, "polar:")
-        pole, angle = split(config[7:end], ",")
-        return PolarRegion(Symbol(pole), parse(Float64, angle))
+        # Format: "polar:south,max_lat,aoi_frac(optional)"
+        vals = split(config[7:end], ",")
+        if vals[1] == "south"
+            pole = SouthPole(parse(Float64,vals[2]))
+        elseif vals[1] == "north"
+            pole = NorthPole(parse(Float64,vals[2]))
+        aoi_frac = length(vals) >= 3 ? parse(Float64,vals[3]) : 1.0
+        return SouthPoleRegion(pole, aoi_frac)
     elseif config == "psr:south"
-        return SouthPolePSR()
+        return SouthPolePSR
     elseif config == "psr:north"
-        return NorthPolePSR()
+        return NorthPolePSR
     elseif config == "psr:all"
-        return AllPSR()
+        return AllPSR
     else
-        throw(ArgumentError("Invalid region configuration"))
+        throw(ArgumentError("Invalid region configuration: $config"))
     end
 end
 
 # region location filtering
-function is_in_region(surface, region::WholeMoonRegion)
-    return true  # whole moon includes all surface points
-end
-
-function is_in_region(surface, region::CircularRegion)
-    lat, lon = deg2rad.(cartesian_to_latlon(surface))
-    center_lat, center_lon = deg2rad.([region.center_lat, region.center_lon])
-    
-    dlat = (lat - center_lat)
-    dlon = (lon - center_lon)
-    a = sin(dlat/2)^2 + cos(lat) * cos(center_lat) * sin(dlon/2)^2
-    gc = 2 * atan(sqrt(a), sqrt(1-a)) * Rmoon
-    
-    return gc <= region.radius
-end
-
 function is_in_region(surface, region::PolarRegion)
-    lat, _ = cartesian_to_latlon(surface)
-    if region.pole == :north
-        return lat >= 90 - region.angle
+    if region isa WholeMoonRegion
+        return true
+    elseif region isa CustomRegion
+        lat, lon = cartesian_to_latlon(surface)
+        return region.criteria(lat, lon)
     else
-        return lat <= -90 + region.angle
+        return is_in_aoi(surface, region.aoi)
     end
 end
 
-function is_in_region(surface, region::CustomRegion)
+function is_in_aoi(surface, aoi::Union{Circle, SphericalCap})
+    center = latlon_to_cartesian(aoi.center_lat, aoi.center_lon)
+    gc = atan(norm((center / norm(center)) × surface), 
+                ((center / norm(center)) ⋅ surface))
+    radius =  isa(aoi, Circle) ? aoi.radius : deg2rad(aoi.dlat)
+    return gc * Rmoon <= radius
+end
+
+function is_in_aoi(surface, aoi::Union{NorthPole,SouthPole,Quadrangle})
     lat, lon = cartesian_to_latlon(surface)
-    return region.criteria(lat, lon)
+    if aoi isa NorthPole
+        return lat >= aoi.min_lat
+    elseif aoi isa SouthPole
+        return lat <= aoi.max_lat
+    elseif aoi isa Quadrangle
+        return (aoi.min_lat <= lat <= aoi.max_lat) & (aoi.min_lon <= lon <= aoi.max_lon)
+    end
+end
+
+# Region uniform sampling - used to skip global random sampling when region is simple
+function random_point_in_aoi(aoi::AreaOfInterest)
+    # TODO: Convert AOI ranges to spherical and sample
+
+    return random_point_on_cap(region.angle)
 end
 
 # Return area of region
