@@ -9,6 +9,7 @@ using Unitful: g, cm, m, km, sr, μV, V, eV, GeV, EeV, Hz, MHz, W, K, NoUnits
 export Rmoon, random_point_on_cap, horizon_angle, random_direction, spherical_cap_area, random_point_on_sphere
 export WholeMoonRegion, CircularRegion, PolarRegion, CustomRegion, SouthPolePSR, NorthPolePSR, AllPSR, create_region, is_in_region, region_area, parse_orbit
 export FixedPlatform, CircularOrbit, SampledPositions, create_spacecraft, get_position
+export random_point_in_aoi, aoi_to_spherical_bounds, is_in_aoi, is_in_region
 
 # exports from spectrum.jl
 export auger_spectrum_2021, auger_spectrum_2020, auger_spectrum, sample_auger, yr, cr_spectrum
