@@ -21,7 +21,7 @@ A structure to hold results of acceptance calculations, including trials, altitu
 """
 mutable struct Acceptance
     ntrials
-    region::Region
+    region::AbstractRegion
     spacecraft::Spacecraft
     energies
     gAΩ
@@ -42,8 +42,7 @@ acceptance(ntrials, nbins; region, spacecraft, trigger, ...)
 Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involves simulations of cosmic ray interactions, triggering conditions, and aggregating results across multiple trials and energy bins.
 """
 function acceptance(ntrials::Int, nbins::Int; 
-    region::Region=PolarRegion(:south, 10),
-    precise_area=false,
+    region::AbstractRegion=AllPSR,
     spacecraft::Spacecraft=CircularOrbit(50.0km),
     trigger=magnitude_trigger(100μV / m),
     min_energy=0.1EeV,
@@ -75,7 +74,7 @@ function acceptance(ntrials::Int, nbins::Int;
                 # throw a random cosmic ray trial and get the signal at the payload
                 direct, reflected = throw_cosmicray(
                     sample_auger(energies[bin], energies[bin+1]), 
-                    trigger, region, spacecraft, simple_area; kwargs...)
+                    trigger, region, spacecraft; simple_area=simple_area, kwargs...)
                 if direct isa TrialFailed
                     dfailed[bin, Int(direct)] += 1
                 else
@@ -108,8 +107,12 @@ function acceptance(ntrials::Int, nbins::Int;
     ntrials_per_bin = ntrials .* (max_tries .- tries_left)
     gAΩ = pi * sr * region_area(WholeMoonRegion())  # [km^2 sr]
 
-    # If simple_area, approximate the collection area as the area of the region
-    #  
+    # If simple_area, approximate the collection area as the area of the region to vastly reduce the # of events
+    # Note: this will deviate from the true geometric integral since it negects the SC fov 
+    # it is nontrivial to estimate the overlap of the SC fov with the region for orbits in general
+    if simple_area
+        gAΩ = gAΩ * region.aoi_frac * region_area(region) / region_area(WholeMoonRegion())
+    end
     dAΩ = gAΩ .* (dcount ./ ntrials_per_bin)  # [km^2 sr]
     rAΩ = gAΩ .* (rcount ./ ntrials_per_bin)  # [km^2 sr]
 

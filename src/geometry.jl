@@ -19,11 +19,11 @@ struct Quadrangle <: AreaOfInterest
 end
 
 abstract type Pole <: AreaOfInterest end
-struct SouthPole <: Pole
+struct SouthPoleAOI <: Pole
     max_lat::Float64
 end
 
-struct NorthPole <: Pole
+struct NorthPoleAOI <: Pole
     min_lat::Float64
 end
 
@@ -48,17 +48,19 @@ end
 #  Do not use AOIs where strong biases exist in spatial distribution within the region and orbit. 
 #    E.g., using an AOI for PSRs relative to the WholeMoonRegion would under-count for polar orbits that spend more time at the poles where PSRs are actually found
 abstract type AbstractRegion end
+abstract type AOIRegion <: AbstractRegion end
 
 @with_kw struct WholeMoonRegion <: AbstractRegion 
     aoi_frac::Float64 = 1.
 end
 
-@with_kw struct PolarRegion <: AbstractRegion 
-    aoi::Pole = SouthPole(-80)
+
+@with_kw struct PolarRegion <: AOIRegion 
+    aoi::Pole = SouthPoleAOI(-80)
     aoi_frac::Float64 = 1.
 end
 
-@with_kw struct Region <: AbstractRegion
+@with_kw struct Region <: AOIRegion
     aoi::AreaOfInterest
     aoi_frac::Float64 = 1.
 end
@@ -76,11 +78,11 @@ end
 
 # South pole: 5.57% of area < -80 degrees is PSR (16055 km^2)
 # SouthPolePSR = (prob=0.0557, area=1.6055e4km^2) -> CustomRegion((lat, lon)->(lat <= -80) && rand() < prob, area)
-SouthPolePSR = PolarRegion(SouthPole(-80), aoi_frac=0.0557)
+SouthPolePSR = PolarRegion(SouthPoleAOI(-80), 0.0557)
 
 # North pole: 4.46% of area > 80 degrees is PSR (12866 km^2)
 # NorthPolePSR = (prob=0.0446, area=1.2866e4km^2) -> CustomRegion((lat, lon)->(lat >= 80) && rand() < prob, area)
-NorthPolePSR = PolarRegion(NorthPole(80), aoi_frac=0.0446)
+NorthPolePSR = PolarRegion(NorthPoleAOI(80), 0.0446)
 
 # Both poles: 5.02% of area within 10 degrees of either pole is PSR (28921 km^2)
 AllPSR = CustomRegion((lat, lon)->(abs(lat) >= 80), 0.0502, 2.8921e4km^2)
@@ -112,11 +114,12 @@ function create_region(config::String)
         # Format: "polar:south,max_lat,aoi_frac(optional)"
         vals = split(config[7:end], ",")
         if vals[1] == "south"
-            pole = SouthPole(parse(Float64,vals[2]))
+            pole = SouthPoleAOI(parse(Float64,vals[2]))
         elseif vals[1] == "north"
-            pole = NorthPole(parse(Float64,vals[2]))
+            pole = NorthPoleAOI(parse(Float64,vals[2]))
+        end
         aoi_frac = length(vals) >= 3 ? parse(Float64,vals[3]) : 1.0
-        return SouthPoleRegion(pole, aoi_frac)
+        return PolarRegion(pole, aoi_frac)
     elseif config == "psr:south"
         return SouthPolePSR
     elseif config == "psr:north"
@@ -129,7 +132,10 @@ function create_region(config::String)
 end
 
 # region location filtering
-function is_in_region(surface, region::PolarRegion)
+function is_in_region(surface, region::AbstractRegion)
+    if region.aoi_frac < 1.0 && rand() > region.aoi_frac
+        return false
+    end
     if region isa WholeMoonRegion
         return true
     elseif region isa CustomRegion
@@ -148,11 +154,11 @@ function is_in_aoi(surface, aoi::Union{Circle, SphericalCap})
     return gc * Rmoon <= radius
 end
 
-function is_in_aoi(surface, aoi::Union{NorthPole,SouthPole,Quadrangle})
+function is_in_aoi(surface, aoi::Union{NorthPoleAOI,SouthPoleAOI,Quadrangle})
     lat, lon = cartesian_to_latlon(surface)
-    if aoi isa NorthPole
+    if aoi isa NorthPoleAOI
         return lat >= aoi.min_lat
-    elseif aoi isa SouthPole
+    elseif aoi isa SouthPoleAOI
         return lat <= aoi.max_lat
     elseif aoi isa Quadrangle
         return (aoi.min_lat <= lat <= aoi.max_lat) & (aoi.min_lon <= lon <= aoi.max_lon)
@@ -161,9 +167,9 @@ end
 
 # Region uniform sampling - used to skip global random sampling when region is simple
 function random_point_in_aoi(aoi::AreaOfInterest)
-    # TODO: Convert AOI ranges to spherical and sample
-
-    return random_point_on_cap(region.angle)
+    theta_max, theta_min, phi_min, phi_max = aoi_to_spherical_bounds(aoi)
+    theta, phi = random_angles_on_cap(theta_max; theta_min=theta_min, phi_min=phi_min, phi_max=phi_max)
+    return spherical_to_cartesian(theta, phi, Rmoon)
 end
 
 # Return area of region
@@ -171,13 +177,15 @@ function region_area(region::WholeMoonRegion)
     return 4 * π * Rmoon^2
 end
 
-function region_area(region::CircularRegion)
+function region_area(region::PolarRegion)
+    theta = region isa NorthPole ? 90-region.aoi.min_lat : region.aoi.max_lat + 90
+    return spherical_cap_area(deg2rad(theta))
+end
+
+function region_area(region::Region)
     return 2 * π * Rmoon^2 * (1 - cos(region.radius / Rmoon))
 end
 
-function region_area(region::PolarRegion)
-    return 2 * π * Rmoon^2 * (1 - cos(region.angle * π / 180))
-end
 
 function region_area(region::CustomRegion)
     return region.area
@@ -679,4 +687,29 @@ function propagate_and_refract(start, direction, antenna, scale, indexmodel)
     # and return the residuals between the two
     return emit, surface, θ_i, θ_r, abs(θ_r - θ_true)
 
+end
+
+function aoi_to_spherical_bounds(aoi::NorthPoleAOI)
+    theta_max = deg2rad(90 - aoi.min_lat)  # Convert from lat to co-lat
+    return theta_max, 0.0, 0.0, 2π
+end
+
+function aoi_to_spherical_bounds(aoi::SouthPoleAOI)
+    theta_min = deg2rad(90 - aoi.max_lat)  # Convert from lat to co-lat 
+    return π, theta_min, 0.0, 2π
+end
+
+function aoi_to_spherical_bounds(aoi::Quadrangle)
+    theta_min = deg2rad(90 - aoi.max_lat)  # Convert from lat to co-lat
+    theta_max = deg2rad(90 - aoi.min_lat)
+    phi_min = deg2rad(aoi.min_lon)
+    phi_max = deg2rad(aoi.max_lon)
+    return theta_max, theta_min, phi_min, phi_max
+end
+
+function aoi_to_spherical_bounds(aoi::Union{Circle,SphericalCap})
+    theta_max = isa(aoi, Circle) ? aoi.radius/Rmoon : deg2rad(aoi.dlat)
+    center_theta = deg2rad(90 - aoi.center_lat)  # Convert lat to co-lat
+    center_phi = deg2rad(aoi.center_lon)
+    return theta_max, center_theta, center_phi, center_phi + 2π
 end
