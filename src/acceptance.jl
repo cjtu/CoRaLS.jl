@@ -100,19 +100,21 @@ function acceptance(ntrials::Int, nbins::Int;
         end # end retry loop
     end # end nbins loop
 
-    # Compute acceptance (pi * A_collected)
+    # Compute acceptance (pi * A_collected) sr [km^2 sr]
     #  factor of pi from integral(cos(theta)) possible angles of incoming CRs
-    #  factor for area is whole moon (cosmic rays sampled from full Moon sphere)
-    #  all other acceptance factors are computed by rejection (visibility, triggering, etc)
-    ntrials_per_bin = ntrials .* (max_tries .- tries_left)
-    gAΩ = pi * sr * region_area(WholeMoonRegion())  # [km^2 sr]
-
-    # If simple_area, approximate the collection area as the area of the region to vastly reduce the # of events
-    # Note: this will deviate from the true geometric integral since it negects the SC fov 
-    # it is nontrivial to estimate the overlap of the SC fov with the region for orbits in general
-    if simple_area
-        gAΩ = gAΩ * region.aoi_frac * region_area(region) / region_area(WholeMoonRegion())
+    #  A_collected : area over which CRs are sampled (usually whole Moon)
+    #  Other acceptance factors are computed by MC rejection (visibility, triggering, etc)
+    if simple_area && region isa AOIRegion
+        # We threw CRs only in the AOIRegion, so A_collected is that AOI surface area
+        # Note: Visibility to spacecraft is still computed via rejection sampling
+        gAΩ = pi * sr * region.aoi_frac * aoi_area(region.aoi)
+    else
+        # Otherwise we threw cosmic rays for whole moon and computed area with MC
+        gAΩ = pi * sr * region_area(WholeMoonRegion())  # [km^2 sr]
     end
+
+    # Count fraction of passed trials per E bin
+    ntrials_per_bin = ntrials .* (max_tries .- tries_left)
     dAΩ = gAΩ .* (dcount ./ ntrials_per_bin)  # [km^2 sr]
     rAΩ = gAΩ .* (rcount ./ ntrials_per_bin)  # [km^2 sr]
 

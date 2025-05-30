@@ -145,13 +145,9 @@ This calculates the field at the payload for the direct and reflected emission,
 function throw_cosmicray(Ecr, trigger, region, spacecraft; simple_area=false, kwargs...)
     SC = get_position(spacecraft)
     if simple_area && region isa AOIRegion
-        # lat, lon, alt = cartesian_to_latlonalt(SC)
-        # hθ = horizon_angle(alt)
         surface = random_point_in_aoi(region.aoi)
         if !is_visible(surface, SC)
             return (NotVisible, NotVisible)
-        # elseif !is_in_region(surface, region)
-        #     return (NotInRegion, NotInRegion)
         end
     else
         surface = random_point_on_sphere(Rmoon)
