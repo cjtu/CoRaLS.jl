@@ -54,7 +54,6 @@ abstract type AOIRegion <: AbstractRegion end
     aoi_frac::Float64 = 1.
 end
 
-
 @with_kw struct PolarRegion <: AOIRegion 
     aoi::Pole = SouthPoleAOI(-80)
     aoi_frac::Float64 = 1.
@@ -161,15 +160,55 @@ function is_in_aoi(surface, aoi::Union{NorthPoleAOI,SouthPoleAOI,Quadrangle})
     elseif aoi isa SouthPoleAOI
         return lat <= aoi.max_lat
     elseif aoi isa Quadrangle
-        return (aoi.min_lat <= lat <= aoi.max_lat) & (aoi.min_lon <= lon <= aoi.max_lon)
+        return (aoi.min_lat <= lat <= aoi.max_lat) && (aoi.min_lon <= lon <= aoi.max_lon)
     end
 end
 
-# Region uniform sampling - used to skip global random sampling when region is simple
-function random_point_in_aoi(aoi::AreaOfInterest)
-    theta_max, theta_min, phi_min, phi_max = aoi_to_spherical_bounds(aoi)
-    theta, phi = random_angles_on_cap(theta_max; theta_min=theta_min, phi_min=phi_min, phi_max=phi_max)
+# AOIRegion sampling
+function random_point_in_aoi(aoi::Pole)
+    if aoi isa NorthPoleAOI
+        theta_max = deg2rad(90 - aoi.min_lat)  # co-latitude
+        theta_min = 0.0
+    elseif aoi isa SouthPoleAOI
+        theta_max = π
+        theta_min = deg2rad(90 - aoi.max_lat)  # co-latitude
+    end
+    theta, phi = random_angles_on_cap(theta_max; theta_min=theta_min)
     return spherical_to_cartesian(theta, phi, Rmoon)
+end
+
+function random_point_in_aoi(aoi::Union{Circle,SphericalCap})
+    # Calculate angle subtended by region
+    dtheta = isa(aoi, Circle) ? aoi.radius / Rmoon : deg2rad(aoi.dlat)
+    # Sample (dtheta) on cap at north pole
+    theta, phi = random_angles_on_cap(dtheta)
+    p = spherical_to_cartesian(theta, phi, Rmoon)
+    # Rotate to center at (center_lat, center_lon)
+    center_theta = deg2rad(90 - aoi.center_lat)
+    center_phi = deg2rad(aoi.center_lon)
+    # Rotation axis and angle: rotate [0,0,1] to center_vec
+    center_vec = spherical_to_cartesian(center_theta, center_phi, 1.0)
+    axis = cross(SA[0.0, 0.0, 1.0], center_vec)
+    angle = acos(clamp(dot(SA[0.0, 0.0, 1.0], center_vec), -1.0, 1.0))
+    if norm(axis) < 1e-8
+        return p
+    else
+        rot = AngleAxis(angle, axis / norm(axis))
+        return rot * p
+    end
+end
+
+function random_point_in_aoi(aoi::Quadrangle)
+    # Uniform sampling in lon, and in sin(lat)
+    lat1 = deg2rad(aoi.min_lat)
+    lat2 = deg2rad(aoi.max_lat)
+    lon1 = deg2rad(aoi.min_lon)
+    lon2 = deg2rad(aoi.max_lon)
+    # Uniform in sin(lat)
+    s = rand()
+    lat = asin(s * (sin(lat2) - sin(lat1)) + sin(lat1))
+    lon = rand(Uniform(lon1, lon2))
+    return spherical_to_cartesian(π/2 - lat, lon, Rmoon)
 end
 
 # Return area of region
@@ -177,13 +216,9 @@ function region_area(region::WholeMoonRegion)
     return 4 * π * Rmoon^2
 end
 
-function region_area(region::PolarRegion)
-    theta = region isa NorthPole ? 90-region.aoi.min_lat : region.aoi.max_lat + 90
-    return spherical_cap_area(deg2rad(theta))
-end
 
-function region_area(region::Region)
-    return 2 * π * Rmoon^2 * (1 - cos(region.radius / Rmoon))
+function region_area(region::AOIRegion)
+    return aoi_area(region.aoi)
 end
 
 
@@ -240,7 +275,7 @@ end
 
 Parse orbital info from a CSV file with columns: time, longitude, latitude, altitude.
 
-Returns SampledOrbit matrix of lat,lon,alt positions to randomly sample.
+Returns SampledOrbit matrix of lon,lat,alt positions to randomly sample.
 """
 function parse_orbit(fname="lro_orbit_1yr_2010.csv")
     data = readdlm("$(@__DIR__)/../data/$(fname)", ',', skipstart=1)
@@ -584,11 +619,8 @@ function random_direction(normal=SA[0.0, 0.0, 1.0])
 end
 
 """
-    spherical_cap_area(theta, r=Rmoon)
-
-Calculate the area of a spherical cap with central angle `theta`.
-
-Returned units will be the square of the units of `r`.
+    spherical_cap_area(theta, r)
+Area of a spherical cap with central angle `theta` and radius `r`.
 """
 function spherical_cap_area(theta, r=Rmoon)
     return 2π * r * r * (1.0 - cos(theta))
@@ -650,12 +682,7 @@ end
 
 """
     propagate_and_refract(start, antenna, direction, scale, indexmodel)
-
-Propagate from `start` along `direction` to `antenna`, shifting `direction`
-by scale along the normal using the `indexmodel` for the refractive index.
-
-This function is for use during minimization of the refractive ray path
-and is not intended for public use (the API may change).
+Propagate from `start` along `direction` to `antenna`, refracting at the surface.
 """
 function propagate_and_refract(start, direction, antenna, scale, indexmodel)
 
@@ -689,27 +716,36 @@ function propagate_and_refract(start, direction, antenna, scale, indexmodel)
 
 end
 
-function aoi_to_spherical_bounds(aoi::NorthPoleAOI)
-    theta_max = deg2rad(90 - aoi.min_lat)  # Convert from lat to co-lat
-    return theta_max, 0.0, 0.0, 2π
+
+function aoi_area(aoi::Quadrangle)
+    # Area of a lat-lon rectangle on a sphere
+    lat1 = deg2rad(aoi.min_lat)
+    lat2 = deg2rad(aoi.max_lat)
+    lon1 = deg2rad(aoi.min_lon)
+    lon2 = deg2rad(aoi.max_lon)
+    return abs(Rmoon^2 * (sin(lat2) - sin(lat1)) * (lon2 - lon1))
 end
 
-function aoi_to_spherical_bounds(aoi::SouthPoleAOI)
-    theta_min = deg2rad(90 - aoi.max_lat)  # Convert from lat to co-lat 
-    return π, theta_min, 0.0, 2π
+function aoi_area(aoi::Circle)
+    # Area of a spherical cap with central angle theta = radius / Rmoon
+    theta = aoi.radius / Rmoon
+    return spherical_cap_area(theta, Rmoon)
 end
 
-function aoi_to_spherical_bounds(aoi::Quadrangle)
-    theta_min = deg2rad(90 - aoi.max_lat)  # Convert from lat to co-lat
-    theta_max = deg2rad(90 - aoi.min_lat)
-    phi_min = deg2rad(aoi.min_lon)
-    phi_max = deg2rad(aoi.max_lon)
-    return theta_max, theta_min, phi_min, phi_max
+function aoi_area(aoi::SphericalCap)
+    # dlat is the cap radius in degrees
+    theta = deg2rad(aoi.dlat)
+    return spherical_cap_area(theta, Rmoon)
 end
 
-function aoi_to_spherical_bounds(aoi::Union{Circle,SphericalCap})
-    theta_max = isa(aoi, Circle) ? aoi.radius/Rmoon : deg2rad(aoi.dlat)
-    center_theta = deg2rad(90 - aoi.center_lat)  # Convert lat to co-lat
-    center_phi = deg2rad(aoi.center_lon)
-    return theta_max, center_theta, center_phi, center_phi + 2π
+function aoi_area(aoi::NorthPoleAOI)
+    # Cap from min_lat to pole
+    theta = deg2rad(90 - aoi.min_lat)
+    return spherical_cap_area(theta, Rmoon)
+end
+
+function aoi_area(aoi::SouthPoleAOI)
+    # Cap from max_lat to south pole
+    theta = deg2rad(90 + aoi.max_lat)
+    return spherical_cap_area(theta, Rmoon)
 end
