@@ -73,6 +73,79 @@ include("../src/geometry.jl")
         @test spherical_cap_area(π/2) ≈ a_moon/2 atol = 1e-5km^2
     end
 
+    @testset "Region Sampling" begin
+        # Circle AOI
+        circle = Circle(0.0, 0.0, 100km)
+        for _ in 1:100
+            p = random_point_in_aoi(circle)
+            @test is_in_aoi(p, circle)
+            @test norm(p) ≈ Rmoon atol = 1e-5km
+        end
+
+        # SphericalCap AOI
+        cap = SphericalCap(0.0, 0.0, 10.0)
+        for _ in 1:100
+            p = random_point_in_aoi(cap)
+            @test is_in_aoi(p, cap)
+            @test norm(p) ≈ Rmoon atol = 1e-5km
+        end
+
+        # Quadrangle AOI
+        quad = Quadrangle(-10.0, 10.0, -10.0, 10.0)
+        for _ in 1:100
+            p = random_point_in_aoi(quad)
+            @test is_in_aoi(p, quad)
+            @test norm(p) ≈ Rmoon atol = 1e-5km
+        end
+
+        # Pole AOIs
+        south = SouthPoleAOI(-80.0)
+        north = NorthPoleAOI(80.0)
+        for _ in 1:100
+            ps = random_point_in_aoi(south)
+            pn = random_point_in_aoi(north)
+            @test is_in_aoi(ps, south)
+            @test is_in_aoi(pn, north)
+            @test norm(ps) ≈ Rmoon atol = 1e-5km
+            @test norm(pn) ≈ Rmoon atol = 1e-5km
+        end
+    end
+
+    @testset "Region Creation and Containment" begin
+        # WholeMoonRegion accepts all points
+        p1 = latlon_to_cartesian(0.0, 0.0, Rmoon)
+        p2 = latlon_to_cartesian(-180.0, 90.0, Rmoon)
+        p3 = latlon_to_cartesian(180.0, -90.0, Rmoon)
+        @test is_in_region(p1, WholeMoonRegion())
+        @test is_in_region(p2, WholeMoonRegion())
+        @test is_in_region(p3, WholeMoonRegion())
+
+        # Region with Circle AOI
+        region = create_region("circle:20,60,100,1.0")
+        p_in = latlon_to_cartesian(20.5, 60.5, Rmoon)
+        p_out = latlon_to_cartesian(0.0, 0.0, Rmoon)
+        @test is_in_region(p_in, region)
+        @test !is_in_region(p_out, region)
+
+        # Region with SphericalCap AOI
+        region = create_region("cap:0,0,10,1.0")
+        p_in = latlon_to_cartesian(5.0, 0.0, Rmoon)
+        p_out = latlon_to_cartesian(15.0, 0.0, Rmoon)
+        @test is_in_region(p_in, region)
+        @test !is_in_region(p_out, region)
+
+        # PolarRegion
+        region = create_region("polar:south,-80,1.0")
+        p_in = latlon_to_cartesian(-85.0, 0.0, Rmoon)
+        p_out = latlon_to_cartesian(-75.0, 0.0, Rmoon)
+        @test is_in_region(p_in, region)
+        @test !is_in_region(p_out, region)
+
+        # Test AOI fraction
+        region = create_region("polar:south,-80,0.0")
+        @test !is_in_region(p_in, region)
+    end
+
     @testset "Intersection with Sphere" begin
         start = SVector{3}(100.0, 0.0, 0.0)
         direction = normalize(SVector{3}(-1.0, 0.0, 0.0))
