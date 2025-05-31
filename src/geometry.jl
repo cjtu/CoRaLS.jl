@@ -130,26 +130,29 @@ function create_region(config::String)
     end
 end
 
-# region location filtering
+# Region location filtering
 function is_in_region(surface, region::AbstractRegion)
-    if region.aoi_frac < 1.0 && rand() > region.aoi_frac
-        return false
-    end
     if region isa WholeMoonRegion
-        return true
+        in_region = true
     elseif region isa CustomRegion
         lat, lon = cartesian_to_latlon(surface)
-        return region.criteria(lat, lon)
+        in_region = region.criteria(lat, lon)
     else
-        return is_in_aoi(surface, region.aoi)
+        in_region = is_in_aoi(surface, region.aoi)
     end
+
+    # Probabalistically account for fractional area of interest
+    if region.aoi_frac < 1.0 && in_region && rand() > region.aoi_frac
+        in_region = false
+    end
+    return in_region
 end
 
 function is_in_aoi(surface, aoi::Union{Circle, SphericalCap})
     center = latlon_to_cartesian(aoi.center_lat, aoi.center_lon)
     gc = atan(norm((center / norm(center)) × surface), 
                 ((center / norm(center)) ⋅ surface))
-    radius =  isa(aoi, Circle) ? aoi.radius : deg2rad(aoi.dlat)
+    radius =  isa(aoi, Circle) ? aoi.radius : deg2rad(aoi.dlat) * Rmoon
     return gc * Rmoon <= radius
 end
 
@@ -186,16 +189,8 @@ function random_point_in_aoi(aoi::Union{Circle,SphericalCap})
     # Rotate to center at (center_lat, center_lon)
     center_theta = deg2rad(90 - aoi.center_lat)
     center_phi = deg2rad(aoi.center_lon)
-    # Rotation axis and angle: rotate [0,0,1] to center_vec
     center_vec = spherical_to_cartesian(center_theta, center_phi, 1.0)
-    axis = cross(SA[0.0, 0.0, 1.0], center_vec)
-    angle = acos(clamp(dot(SA[0.0, 0.0, 1.0], center_vec), -1.0, 1.0))
-    if norm(axis) < 1e-8
-        return p
-    else
-        rot = AngleAxis(angle, axis / norm(axis))
-        return rot * p
-    end
+    return rotate_vector_to_align(p, SA[0.0, 0.0, 1.0], center_vec)
 end
 
 function random_point_in_aoi(aoi::Quadrangle)
@@ -537,41 +532,11 @@ Generate a random Cartesian direction distributed uniformly on the unit-sphere
 with the pole of the sphere aligned with `normal`
 """
 function random_vector(normal=SA[0.0, 0.0, 1.0])
-
-    # check that normal is accurately normalized
     @toggled_assert norm(normal) ≈ 1.0
-
-    # draw a random polar angle uniformly in solid angle
     theta = acos(rand(Uniform(0.0, 1.0)))
-
-    # draw an azimuthal angle uniformaly in the desired range
     phi = rand(Uniform(0.0, 2π))
-
-    # this is the vector in the z-hat space
     direction = spherical_to_cartesian(theta + π / 2.0, phi, 1.0)
-
-    # we must now rotate this so that z-hat is aligned with normal
-    # we do this with an axis angle representation
-
-    # this is our z-hat vector in the original coordinate system
-    zhat = SA[0.0, 0.0, 1.0]
-
-    # construct the angle between z-hat and normal - already normalized
-    θ = acos(zhat ⋅ normal)
-
-    # and construct the *right-handed* axis
-    axis = normal × zhat
-
-    # have to check that axis can be properly normalized
-    if norm(axis) < 1e-6
-        # if this is true, we are in the same coordinate system
-        return direction
-    end
-
-    # otherwide, normalize, do the rotation, and return
-    return AngleAxis(-θ, (axis / norm(axis))...) * direction
-
-
+    return rotate_vector_to_align(direction, SA[0.0, 0.0, 1.0], normal)
 end
 
 """
@@ -581,41 +546,11 @@ Generate a random Cartesian direction distributed uniformly on the unit-sphere
 with the pole of the sphere aligned with `normal` weighted by cos^2(\theta)
 """
 function random_direction(normal=SA[0.0, 0.0, 1.0])
-
-    # check that normal is accurately normalized
     @toggled_assert norm(normal) ≈ 1.0
-
-    # draw a random polar angle uniformly in solid angle
     theta = acos(sqrt(rand(Uniform(0.0, 1.0))))
-
-    # draw an azimuthal angle uniformaly in the desired range
     phi = rand(Uniform(0.0, 2π))
-
-    # this is the vector in the z-hat space
     direction = spherical_to_cartesian(theta + π / 2.0, phi, 1.0)
-
-    # we must now rotate this so that z-hat is aligned with normal
-    # we do this with an axis angle representation
-
-    # this is our z-hat vector in the original coordinate system
-    zhat = SA[0.0, 0.0, 1.0]
-
-    # construct the angle between z-hat and normal - already normalized
-    θ = acos(zhat ⋅ normal)
-
-    # and construct the *right-handed* axis
-    axis = normal × zhat
-
-    # have to check that axis can be properly normalized
-    if norm(axis) < 1e-6
-        # if this is true, we are in the same coordinate system
-        return direction
-    end
-
-    # otherwide, normalize, do the rotation, and return
-    return AngleAxis(-θ, (axis / norm(axis))...) * direction
-
-
+    return rotate_vector_to_align(direction, SA[0.0, 0.0, 1.0], normal)
 end
 
 """
@@ -748,4 +683,22 @@ function aoi_area(aoi::SouthPoleAOI)
     # Cap from max_lat to south pole
     theta = deg2rad(90 + aoi.max_lat)
     return spherical_cap_area(theta, Rmoon)
+end
+
+"""
+    rotate_vector_to_align(vec, from, to)
+
+Rotate `vec` so that the direction `from` is aligned with `to`.
+If `from` and `to` are already aligned, returns `vec` unchanged.
+Numerically stable for nearly parallel vectors.
+"""
+function rotate_vector_to_align(vec::SVector{3}, from::SVector{3}, to::SVector{3})
+    axis = cross(from, to)
+    axis_norm = norm(axis)
+    if axis_norm < 1e-8
+        return SVector{3}(vec)
+    end
+    angle = acos(clamp(dot(from, to), -1.0, 1.0))
+    rot = AngleAxis(angle, (axis / axis_norm)...)
+    return SVector{3}(rot * vec)
 end
