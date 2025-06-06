@@ -68,7 +68,7 @@ function acceptance(ntrials::Int, nbins::Int;
 
     @showprogress 1 "Simulating..." for bin = 1:nbins
         # Run acceptance loop at least once, retry if min_count not met up to max_tries times
-        while tries_left[bin] > 0 && (tries_left[bin] == max_tries || dcount[bin] < min_count)
+        while tries_left[bin] > 0 && (tries_left[bin] == max_tries || rcount[bin] < min_count)
             # loop over the number of trials in this bin
             for i = 1:ntrials
                 # throw a random cosmic ray trial and get the signal at the payload
