@@ -3,6 +3,30 @@ using Unitful: km, sr, EeV, MHz, m, μV, cm, ustrip
 using Random
 using PyPlot
 
+
+function plot_altitudes(ntrials=1000, nbins=7, altitudes=[1, 10, 50, 100, 500, 1000]km)
+    figname = "$(@__DIR__)/../figs/altitude_experiment.png"
+    region = create_region("polar:south,-80,0.0557")
+    ice_depth = 10.0m
+    title="Spole PSR detections\nice_depth=$(ice_depth) (4 nadir 0.3-1GHz)"
+
+    kws = Dict(:ice_depth=>ice_depth,:min_energy=>0.5EeV,:max_energy=>500.0EeV,
+            :ν_min=>300MHz,:ν_max=>1000MHz,:dν=>30MHz,
+            :min_count=>50,:max_tries=>100,:simple_area=>true)
+
+    A_arr = []
+    for altitude in altitudes
+        sc = CircularOrbit(altitude)  
+        trigger = LPDA(Nant=4, Ntrig=4, θ0=-90.0, altitude=altitude, skyfrac=0)
+        A = acceptance(ntrials, nbins, region=region, spacecraft=sc; trigger=trigger, kws...)
+        push!(A_arr, A)
+    end
+
+    fig, ax = plot_rate_experiment(A_arr, altitudes; xlabel="Altitude [km]")
+    ax.set_title(title)
+    fig.savefig(figname)
+end
+
 # Compare acceptance for different detector geometry
 # Next: look as fuction of angle with co-aligned antennas
 #  SNR: trigger rate at kHz with nano sec window
@@ -121,5 +145,7 @@ function plot_detector_coaligned(;verbose=false)
     ax.set_title("4 coaligned antennas, 50km polar orbit, AllPSR, ice_depth=6m")
     fig.savefig(figname)
 end
-plot_detector_geoms(; from_dir="/mnt/d/data/corals/")
+
+plot_altitudes();
+# plot_detector_geoms(; from_dir="/mnt/d/data/corals/")
 # plot_detector_coaligned()

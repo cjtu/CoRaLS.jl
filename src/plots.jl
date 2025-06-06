@@ -290,3 +290,110 @@ function plot_differential_spectrum(AΩ::Union{Acceptance, OldAcceptance}, T)
     return fig, ax
 
 end
+
+"""
+    mcse(count, ntrials, [gAΩ])
+
+Compute the Monte Carlo Standard Error as count or acceptance if gAΩ is given.
+
+Uses Monte Carlo Standard Error for binomial proportion: sqrt(p*(1-p)/n)
+"""
+function mcse(count::Int, ntrials::Int)
+    p = count ./ ntrials
+    return sqrt.(p .* (1 .- p) ./ ntrials)
+end
+
+"""
+    plot_rate_experiment(AΩ::Acceptance, xs; xlabel)
+
+Plot the counts in events / yr for an array of acceptance runs computed at
+some variable x (e.g., ice depths, altitudes).
+
+Arguments:
+- AΩs : Array of acceptance objects.
+- xs : Array of paramter values for the x axis corresponding to each AΩ.
+
+This function plots the estimated number of events per energy bin over the duration of the mission.
+"""
+function plot_rate_experiment(AΩs, xs; xlabel="")
+    xs = ustrip.(xs)
+
+    r_spectra = [differential_spectrum(AΩ.energies, AΩ.rAΩ, 1yr) for AΩ in AΩs]
+    r_spectra_mat = hcat(r_spectra...)'  # matrix [xs, energies]
+    d_spectra = [differential_spectrum(AΩ.energies, AΩ.dAΩ, 1yr) for AΩ in AΩs]
+    d_spectra_mat = hcat(d_spectra...)'
+
+    r_mcse = [differential_spectrum(AΩ.energies, mcse.(AΩ.rcount, AΩ.ntrials)*AΩ.gAΩ, 1yr) for AΩ in AΩs]
+    r_mcse_mat = hcat(r_mcse...)'  # matrix [xs, energies]
+    # d_mcse = [differential_spectrum(AΩ.energies, mcse(AΩ.dcount, AΩ.ntrials, AΩ.gAΩ), 1yr) for AΩ in AΩs]
+    # d_mcse_mat = hcat(d_mcse...)'
+
+    cmap = PyPlot.get_cmap("plasma")
+
+    nE = length(AΩs[1].energies) - 1
+    logE = 18.0 .+ log10.(ustrip.(AΩs[1].energies))
+    fig, ax = plt.subplots(figsize=(5, 4))
+
+    # Show total and label it at its peak
+    total_r = sum(r_spectra_mat; dims=2)
+    ax.plot(xs, total_r, color="k", linewidth=2, alpha=0.6)
+    y_peak_r = maximum(total_r)
+    idx_peak_r = argmax(total_r)
+    x_peak_r = xs[idx_peak_r]
+    ha = x_peak_r == xs[1] ? "left" : "center"
+    ax.text(x_peak_r, y_peak_r, "Total", color="k", fontsize=10, va="bottom", ha=ha)
+
+    # Show each energy curve
+    for i in 1:nE
+        norm_val = (i-1) / nE
+        color = cmap(norm_val)
+        ax.plot(xs, r_spectra_mat[:, i], color=color, alpha=0.8)
+        ax.errorbar(
+            xs, r_spectra_mat[:, i], yerr=r_mcse_mat[:, i],
+            fmt="none", ecolor=color, alpha=0.5, capsize=2, elinewidth=1, drawstyle="steps-mid"
+        )
+        ax.plot(xs, d_spectra_mat[:, i], color=color, alpha=0.8, linestyle="--")
+
+        # Find peak for reflected spectrum
+        y_peak_r = maximum(r_spectra_mat[:, i])
+        idx_peak_r = argmax(r_spectra_mat[:, i])
+        x_peak_r = xs[idx_peak_r]
+        ha = x_peak_r == xs[1] ? "left" : "center"
+        ha = x_peak_r == xs[end] ? "right" : ha
+        ax.text(
+            x_peak_r, y_peak_r * 1.01,  # Slightly offset in y
+            "10^"*string(round(logE[i], sigdigits=3))*" eV", 
+            color=color, fontsize=8, va="bottom", ha=ha
+        )
+    end
+    # Show colorbar
+    sm = PyPlot.matplotlib.cm.ScalarMappable(
+        cmap=cmap, 
+        norm=PyPlot.matplotlib.colors.Normalize(vmin=logE[1], vmax=logE[end])
+    )
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, pad=0.02)
+    cbar.set_label("log₁₀(Energy [eV])")
+    cbar.set_ticks(logE)
+    cbar.set_ticklabels(string.(round.(logE, sigdigits=3)))
+
+    # Plot params
+    ax.set(
+        xlabel=xlabel,
+        ylabel="Events / yr",
+        axisbelow=true,
+        ylim=0,
+        xlim=[xs[1], xs[end]]
+    )
+    ax.grid(true, which="major", linestyle="dashed")
+    ax.tick_params(
+        axis="both",
+        which="major",
+        direction="in",
+        top=true,
+        right=true
+    )
+    plt.xscale("log")
+
+    return fig, ax
+end
