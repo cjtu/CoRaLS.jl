@@ -196,7 +196,7 @@ Arguments:
 This function generates a line plot illustrating the acceptance rates for both direct and reflected events across different energy levels.
 """
 function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=nothing, name="", 
-                         colorrefl=colorrefl, colordirect=colordirect, kwargs...)
+                         colorrefl=colorrefl, colordirect=nothing, kwargs...)
 
     # create the figure
     if ax === nothing
@@ -204,6 +204,7 @@ function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=
     else
         fig = gcf()
     end
+    colordirect = isnothing(colordirect) ? colorrefl : colordirect
 
     if AΩ isa Acceptance
         rcount = AΩ.rcount
@@ -242,7 +243,7 @@ function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=
     ax.set(xlabel=L"Energy [$\log_{10}$(eV)]",
         ylabel=L"Acceptance [km$^2$ sr]",
         yscale="log")
-    ax.legend(loc="upper left")
+    ax.legend()
     ax.set_xlim(logE[1], logE[end])
     ax[:xaxis][:set_major_formatter](PyPlot.matplotlib.ticker.StrMethodFormatter("{x:.4g}"))
     return fig, ax
@@ -300,7 +301,7 @@ function plot_differential_spectrum(AΩ::Union{Acceptance, OldAcceptance}, T)
         ylabel="Events per bin / $(T)",
         xticks=[17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0],
         yscale="log")
-    ax.legend(loc="upper right")
+    ax.legend()
 
     return fig, ax
 
@@ -452,7 +453,7 @@ function plot_event_outcomes(A::Acceptance; title="")
     end
 
     # Axes setup
-    ax.legend(loc="lower left", title="(Refl: —, Direct: ---)", title_fontsize=8, fontsize=8, framealpha=0.3)
+    ax.legend(loc="best", title="(Refl: —, Direct: ---)", title_fontsize=8, fontsize=8, framealpha=0.3)
     ax.set(
         title=title,
         xlabel="log₁₀(Energy [eV])",
