@@ -1,8 +1,22 @@
-using Test
-using LinearAlgebra
-import Unitful: km, m, s, H, eV, K, MHz, V
-
-include("../src/geometry.jl")
+using CoRaLS: 
+    random_north_pole_point,
+    random_south_pole_point,
+    random_angles_on_cap,
+    spherical_to_cartesian,
+    cartesian_to_spherical,
+    random_vector,
+    Circle,
+    SphericalCap,
+    Sphere,
+    Quadrangle,
+    SouthPoleAOI,
+    NorthPoleAOI,
+    intersect_with_sphere,
+    cartesian_to_latlon,
+    latlon_to_cartesian,
+    SVector,
+    norm,
+    normalize
 
 @testset verbose = true "geometry.jl" begin
 

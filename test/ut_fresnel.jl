@@ -1,7 +1,4 @@
-using Test
-using LinearAlgebra
-
-include("../src/fresnel.jl")
+using CoRaLS: fresnel_coeffs, fresnel_critical, snell_θt
 
 @testset verbose = true "fresnel.jl" begin
     # Validate Fresnel reflectance / transmission 

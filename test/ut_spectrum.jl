@@ -1,8 +1,3 @@
-using Test
-using Unitful: eV, km, sr, yr, ustrip
-
-include("../src/spectrum.jl")
-
 @testset verbose = true "spectrum.jl" begin
     @testset "Test auger_spectrum_2021 flux" begin
         # Raw counts from Table 10 of Auger 2021 paper

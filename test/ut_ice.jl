@@ -1,8 +1,4 @@
-using Test
-import Unitful: cm, km, m, s, H, eV, K, MHz, V
-
-include("../src/constants.jl")
-include("../src/ice.jl")
+using CoRaLS: ice_roughness
 
 @testset verbose = true "ice.jl" begin
     # Test Variables

@@ -3,6 +3,28 @@ using Unitful: km, sr, EeV, MHz, m, μV, cm, ustrip
 using Random
 using PyPlot
 
+function plot_ice_depth(ntrials=1000, nbins=7, ice_depths=[1, 5, 10, 100]m)
+    figname = "$(@__DIR__)/../figs/ice_depth_experiment.png"
+    region = create_region("polar:south,-80,0.0557")
+    altitude = 10km
+    title="Spole PSR detections\naltitude=$(altitude) (4 nadir 0.3-1GHz)"
+
+    kws = Dict(:min_energy=>0.5EeV,:max_energy=>500.0EeV,
+            :ν_min=>300MHz,:ν_max=>1000MHz,:dν=>30MHz,
+            :min_count=>50,:max_tries=>100,:simple_area=>true)
+
+    A_arr = []
+    for ice_depth in ice_depths
+        sc = CircularOrbit(altitude)  
+        trigger = LPDA(Nant=4, Ntrig=4, θ0=-90.0, altitude=altitude, skyfrac=0)
+        A = acceptance(ntrials, nbins, region=region, spacecraft=sc; trigger=trigger, ice_depth=ice_depth, kws...)
+        push!(A_arr, A)
+    end
+
+    fig, ax = plot_rate_experiment(A_arr, ice_depth; xlabel="Altitude [km]")
+    ax.set_title(title)
+    fig.savefig(figname)
+end
 
 function plot_altitudes(ntrials=1000, nbins=7, altitudes=[1, 10, 50, 100, 500, 1000]km)
     figname = "$(@__DIR__)/../figs/altitude_experiment.png"
@@ -146,6 +168,7 @@ function plot_detector_coaligned(;verbose=false)
     fig.savefig(figname)
 end
 
-plot_altitudes();
+plot_ice_depth()
+# plot_altitudes();
 # plot_detector_geoms(; from_dir="/mnt/d/data/corals/")
 # plot_detector_coaligned()
