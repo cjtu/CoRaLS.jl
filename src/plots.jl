@@ -206,22 +206,36 @@ function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=
     end
 
     if AΩ isa Acceptance
-        ridx = AΩ.rcount .>= min_count
-        didx = AΩ.dcount .>= min_count
-    else
-        ridx = AΩ.rAΩ ./ AΩ.gAΩ .* AΩ.ntrials .>= min_count
-        didx = AΩ.dAΩ ./ AΩ.gAΩ .* AΩ.ntrials .>= min_count
+        rcount = AΩ.rcount
+        dcount = AΩ.dcount 
+    elseif AΩ isa OldAcceptance
+        rcount = Int.(round.(AΩ.rAΩ ./ AΩ.gAΩ .* AΩ.ntrials))
+        dcount = Int.(round.(AΩ.dAΩ ./ AΩ.gAΩ .* AΩ.ntrials))
     end
-    
-    # plot the lines
-    rE = 18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV)
-    ax.plot(rE[ridx], AΩ.rAΩ[ridx] ./ km^2 ./ sr,
-        color=colorrefl, label=name*" Reflected"; kwargs...)
-    dE = 18.0 .+ log10.(0.5 * (AΩ.energies[1:end-1] + AΩ.energies[2:end]) ./ 1.0EeV)
-    ax.plot(dE[didx], AΩ.dAΩ[didx] ./ km^2 ./ sr,
-        color=colordirect, label=name*" Direct"; kwargs...)
-    
+    ridx = rcount .>= min_count
+    didx = dcount .>= min_count
 
+    # Compute errors
+    rerr = mcse.(rcount, AΩ.ntrials) .* AΩ.gAΩ ./ km^2 ./ sr
+    derr = mcse.(dcount, AΩ.ntrials) .* AΩ.gAΩ ./ km^2 ./ sr
+
+    # plot the lines
+    logE = log10.(AΩ.energies * 1e18 / EeV)
+    E = (logE[1:end-1] + logE[2:end]) / 2  # Bin centers in logspace
+    ax.plot(E[ridx], AΩ.rAΩ[ridx] ./ km^2 ./ sr, 
+        color=colorrefl, label=name*" Reflected", drawstyle="steps-mid"; kwargs...)
+    ax.errorbar(
+            E[ridx], AΩ.rAΩ[ridx] ./ km^2 ./ sr, yerr=rerr[ridx], 
+            fmt="none", ecolor=colorrefl, alpha=0.5, capsize=2, elinewidth=1,
+        )
+
+    ax.plot(E[didx], AΩ.dAΩ[didx] ./ km^2 ./ sr, ls="--",
+        color=colordirect, label=name*" Direct", drawstyle="steps-mid"; kwargs...)
+    ax.errorbar(
+            E[didx], AΩ.dAΩ[didx] ./ km^2 ./ sr, yerr=derr[didx],
+            fmt="none", ecolor=colordirect, alpha=0.5, capsize=2, elinewidth=1,
+        )
+    
     # and finally pretty it up
     ax.set_axisbelow(true)
     ax.grid(which="both", linestyle="dashed")
@@ -229,7 +243,8 @@ function plot_acceptance(AΩ::Union{Acceptance, OldAcceptance}; min_count=0, ax=
         ylabel=L"Acceptance [km$^2$ sr]",
         yscale="log")
     ax.legend(loc="upper left")
-
+    ax.set_xlim(logE[1], logE[end])
+    ax[:xaxis][:set_major_formatter](PyPlot.matplotlib.ticker.StrMethodFormatter("{x:.4g}"))
     return fig, ax
 
 end
@@ -330,8 +345,11 @@ function plot_rate_experiment(AΩs, xs; xlabel="")
 
     cmap = PyPlot.get_cmap("plasma")
 
-    nE = length(AΩs[1].energies) - 1
-    logE = 18.0 .+ log10.(ustrip.(AΩs[1].energies))
+    # Energy array (take bin centers in log space)
+    logE = log10.(AΩs[1].energies * 1e18 / EeV)
+    E = (logE[1:end-1] + logE[2:end]) / 2
+    nE = length(E)
+
     fig, ax = plt.subplots(figsize=(5, 4))
 
     # Show total and label it at its peak
@@ -350,7 +368,7 @@ function plot_rate_experiment(AΩs, xs; xlabel="")
         ax.plot(xs, r_spectra_mat[:, i], color=color, alpha=0.8)
         ax.errorbar(
             xs, r_spectra_mat[:, i], yerr=r_mcse_mat[:, i],
-            fmt="none", ecolor=color, alpha=0.5, capsize=2, elinewidth=1, drawstyle="steps-mid"
+            fmt="none", ecolor=color, alpha=0.5, capsize=2, elinewidth=1,
         )
         ax.plot(xs, d_spectra_mat[:, i], color=color, alpha=0.8, linestyle="--")
 
@@ -362,7 +380,7 @@ function plot_rate_experiment(AΩs, xs; xlabel="")
         ha = x_peak_r == xs[end] ? "right" : ha
         ax.text(
             x_peak_r, y_peak_r * 1.01,  # Slightly offset in y
-            "10^"*string(round(logE[i], sigdigits=3))*" eV", 
+            "10^"*string(round(E[i], sigdigits=4))*" eV", 
             color=color, fontsize=8, va="bottom", ha=ha
         )
     end
@@ -395,5 +413,63 @@ function plot_rate_experiment(AΩs, xs; xlabel="")
     )
     plt.xscale("log")
 
+    return fig, ax
+end
+
+function plot_event_outcomes(A::Acceptance; title="")
+    # Get CR energy bin centers in log space
+    logE = log10.(A.energies * 1e18 / EeV)
+    E = (logE[1:end-1] + logE[2:end]) / 2
+
+    # Outcomes are accepted counts, nottriggered, and failtypes (vs E)
+    # Not triggered = (Ntrials - accepted - failed) by process of elimination
+    outcomes = vcat("Accepted", "NotTriggered", String.(Symbol.(A.failtypes))...)
+    d_not_triggered = (A.ntrials .- A.dcount .- sum(A.dfailed;dims=2))
+    r_not_triggered = (A.ntrials .- A.rcount .- sum(A.rfailed;dims=2))
+    d_outcomes = hcat(A.dcount, d_not_triggered, A.dfailed)
+    r_outcomes = hcat(A.rcount, r_not_triggered, A.rfailed)
+    
+    colors = PyPlot.cm.get_cmap("tab10")(0:length(outcomes))
+    markers = [".", "x", "v", "^", "<", ">", "+", "D", "p", "h"]
+
+    fig, ax = subplots(1, 1, figsize=(5, 4))
+    for (j, outcome) in enumerate(outcomes)
+        color = colors[j,:]
+        marker = markers[mod1(j, length(markers))]
+        y_d = d_outcomes[:, j] ./ A.ntrials
+        y_r = r_outcomes[:, j] ./ A.ntrials
+        y_rmcse = mcse.(r_outcomes[:, j],  A.ntrials)
+        
+        # Plot each line only if events exist
+        if !all(iszero, y_r) 
+            ax.plot(E, y_r, color=color, marker=marker, label="$(outcome)", alpha=0.8, drawstyle="steps-mid")
+            ax.errorbar(
+                    E, y_r, yerr=y_rmcse,fmt="none", ecolor=color, 
+                    alpha=0.5, capsize=2, elinewidth=1
+                )
+        end
+        !all(iszero, y_d) && ax[:plot](E, y_d, color=color, marker=marker, linestyle="--",  alpha=0.8, drawstyle="steps-mid")
+    end
+
+    # Axes setup
+    ax.legend(loc="lower left", title="(Refl: —, Direct: ---)", title_fontsize=8, fontsize=8, framealpha=0.3)
+    ax.set(
+        title=title,
+        xlabel="log₁₀(Energy [eV])",
+        ylabel="P (Event Outcome / Ntrials)",
+        axisbelow=true,
+        xlim=(logE[1], logE[end]),
+        ylim=(5e-7,2),
+        yscale="log"
+    )
+    ax[:xaxis][:set_major_formatter](PyPlot.matplotlib.ticker.StrMethodFormatter("{x:.4g}"))
+    ax.grid(true, which="major", linestyle="dashed")
+    ax.tick_params(
+        axis="both",
+        which="major",
+        direction="in",
+        top=true,
+        right=true
+    )
     return fig, ax
 end

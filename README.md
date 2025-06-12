@@ -1,83 +1,59 @@
 # CoRaLS
 
-The `CoRaLS` (Cosmic Ray Lunar Sounder) module is designed for computing acceptance rates from cosmic ray interactions in lunar regolith.
+The `CoRaLS.jl` (Cosmic Ray Lunar Sounder) Monte Carlo model computes detection rates of Askaryan emission from cosmic ray interactions in lunar regolith.
 
 ## Installation
 
-Install the latest version of Julia from [julialang.org/downloads](https://julialang.org/downloads/) and [add Julia to your system path](https://julialang.org/downloads/platform/#optional_add_julia_to_path). 
-
-Also ensure python and the `matplotlib` package are installed with [Anaconda](https://www.anaconda.com/)/[Miniconda](https://conda.io/miniconda.html)/[Miniforge](https://github.com/conda-forge/miniforge) (e.g. so that it is visible with `conda list matplotlib`).
-
-Clone this repository:
+1. [Install Julia](https://julialang.org/install/) 
+2. Install Python and the `matplotlib` package, the easiest way is with [Anaconda](https://www.anaconda.com/) (e.g. `conda list matplotlib`).
+3. Fork or clone this repository:
 
 ```sh
 git clone git@github.com:cjtu/CoRaLS.jl.git
 ```
 
-Change directory to the cloned repository and start Julia.
+4. (First time only): Setup path to python/matplotlib. In the Julia REPL, supply the path to your python environment from #2 in quotes to `ENV["PYTHON"]=""` (leave blank to use system default python). Then add and build the `PyCall` package:
 
-```sh
-cd CoRaLS.jl
-julia
-```
+```bash
+$ julia
 
-In the Julia REPL, enter package mode by pressing `]` (notice `julia>` changes to `>pkg`). Adding and building the PyCall package will give Julia access to the Python installation specified at the path supplied in quotes to `ENV["PYTHON"]` (leave blank `""` to use system default python):
-
-```julia
 julia> ENV["PYTHON"]=""
-julia> ]
-pkg> add PyCall
-pkg> build PyCall
+julia> using Pkg
+julia> Pkg.add("PyCall")
+julia> Pkg.build("PyCall")
 ```
 
-Then activate the CoRaLS environment and instantiate it to install the required packages and compile CoRaLS.jl. You will need to activate the environment each time you start a new Julia session:
-
-```julia
-pkg> activate .
-pkg> instantiate
-```
-
-Now CoRaLS is ready to use. To exit package mode, press `backspace` (prompt is now `julia>`). Try importing CoRaLS and running a test:
-
-```julia
-julia> using CoRaLS
-julia> plot_acceptance(acceptance(10000, 20))
-```
-
-Or equivalently:
-
-```julia
-julia> import CoRaLS
-julia> CoRaLS.plot_acceptance(CoRaLS.acceptance(10000, 20))
-```
-
-Exit julia with `ctrl+D` or `exit()`:
-
-```julia
-julia> exit()
-```
-
-## Using the CoRaLS environment
-
-From now on, simply start julia with the environment activated with `--project=/path/to/root/CoRaLS/directory`. If you are in the folder simply run:
+5. Run the test suite to test the installation:
 
 ```bash
-julia --project=.
+julia --project=/path/to/CoRaLS.jl /path/to/CoRaLS.jl/test/runtests.jl
 ```
 
-Then you can import CoRaLS and use it as above:
+If the tests were successful, `CoRaLS.jl` is compiled and ready to use!
+
+## Calculating rates with CoRaLS
+
+1. Start Julia with the CoRaLS project active using the `--project` flag pointing to the CoRaLS directory (if you are in the directory use `--project=.`). For multithreaded mode, use `-t` to specify the number of threads (default is 1, "auto" chooses for you).
+
+```bash
+julia --project=/path/to/CoRaLS.jl -t "auto"
+julia> using CoRaLS
+```
+
+2. import `CoRaLS` with:
 
 ```julia
 julia> using CoRaLS
 ```
 
-## Testing
+3. Compute and plot an acceptance:
 
-To test the installation, run the following from the CoRaLS directory:
-
-```bash
-julia --project=. test/runtests.jl
+```julia
+julia> A = acceptance(10000, 20; region=create_region("psr:south"), spacecraft=CircularOrbit(50.0km))
+julia> plot_acceptance(A)
 ```
+
+See full documentation online at... (coming soon)
 
 ## Developers
 

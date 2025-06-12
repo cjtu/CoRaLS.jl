@@ -43,19 +43,17 @@ export regolith_field, JAM, FORTE, GaisserHillasProfile, GaussianProfile, ARW
 export LPDA, ANITA
 
 # exports from simulate.jl
-export throw_cosmicray, ScalarGeometry, RaytracedGeometry, VectorGeometry
+export throw_cosmicray, ScalarGeometry, VectorGeometry
 
 # exports from trigger.jl
 export magnitude_trigger, gaussian_trigger, rician_trigger, trigger_all
-
-# exports from moon.jl
-export psr_area, psr_fraction
 
 # exports from acceptance.jl
 export acceptance, differential_spectrum, trials_passed, old_acceptance, save_acceptance, load_acceptance, merge_acceptance
 
 # exports from plots.jl
-export plot_differential_spectrum, plot_incident_angles, plot_polarization_angle, plot_offaxis_angle, plot_acceptance, plot_rate_experiment
+export plot_differential_spectrum, plot_incident_angles, plot_polarization_angle, plot_offaxis_angle
+export plot_acceptance, plot_rate_experiment, plot_event_outcomes
 
 # import all of our code
 include("constants.jl")
@@ -69,8 +67,6 @@ include("sky.jl")
 include("regolith.jl")
 include("efield.jl")
 include("trigger.jl")
-include("moon.jl")
-include("raytrace.jl")
 include("simulate.jl")
 include("detector.jl")
 include("acceptance.jl")

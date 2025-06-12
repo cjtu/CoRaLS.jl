@@ -127,24 +127,29 @@ function regolith_field(::ARW, Ecr, θ,
     # and now map (θ - θtrue) into the θsim space
     θactual = clamp(θsim + (θ - θtrue), 0.0, π)
 
-    # evaluate R|E| at the θ and across a frequency band
-    RE = ARW_RE(θactual, ν) * (1V / 1MHz)
+    # # evaluate R|E| at the θ and across a frequency band
+    # RE = ARW_RE(θactual, ν) * (1V / 1MHz)
 
-    # scale by the energy - the interpolator was done at 1e20 eV
-    RE *= ((Ecr / 100.0EeV) |> NoUnits)
+    # # scale by the energy - the interpolator was done at 1e20 eV
+    # RE *= ((Ecr / 100.0EeV) |> NoUnits)
 
-    # correct this simulation using the new shower profiles
-    RE *= 1.1222
+    # # correct this simulation using the new shower profiles
+    # RE *= 1.1222
 
-    # scale by the distance to the shower and explicitly force to
-    # normal electric-field spectral units
-    E = (RE ./ (Drego + Dvacuum)) .|> V / m / MHz
+    # # scale by the distance to the shower and explicitly force to
+    # # normal electric-field spectral units
+    # E = (RE ./ (Drego + Dvacuum)) .|> V / m / MHz
 
-    # get the attenuation length at this density
+    # # get the attenuation length at this density
+    # Latten = attenuation_length(ν, n, density)
+
+    # # and apply the attenuation length due to proapgation in regolith
+    # E .*= exp.(-Drego ./ Latten)
+
+    factor = 1.1222 * Ecr / 100.0EeV / (Drego + Dvacuum)
+    E = factor * ARW_RE(θactual, ν) * (1V / 1MHz)
     Latten = attenuation_length(ν, n, density)
-
-    # and apply the attenuation length due to proapgation in regolith
-    E .*= exp.(-Drego ./ Latten)
+    @. E *= exp(-Drego / Latten)
 
     return ν, E
 

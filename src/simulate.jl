@@ -326,6 +326,7 @@ function compute_direct(::ScalarGeometry,
     # get some needed refractive indices
     Nsurf = regolith_index(indexmodel, 0.0m)
     NXmax = regolith_index(indexmodel, depth)
+    # θ_r > fresnel_critical(Nsurf, 1) && return TIR
 
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
@@ -477,7 +478,8 @@ function compute_reflected(::ScalarGeometry,
     Nsurf = regolith_index(indexmodel, 0.0m)
     NXmax = regolith_index(indexmodel, depth)
     Nrego_at_ice = regolith_index(indexmodel, ice_depth)
-
+    # θ_r > fresnel_critical(Nsurf, 1) && return TIR
+    
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
     θ_i = asin(sin(θ_r) / Nsurf)

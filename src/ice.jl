@@ -54,13 +54,14 @@ function ice_roughness(::NoIceRoughness, ν, E, θ_i)
 end
 
 function ice_roughness(roughness::GaussianIceRoughness, ν, E, θ_i, n=sqrt(3.0))
-
     # calculate the wavelength for each frequency
-    λ = c_0 ./ (ν .* n)
+    # λ = c_0 ./ (ν .* n)
 
     # calculate `g` - which is the parameter to our exponential model
-    g = (4π .* (roughness.σ ./ λ) .* cos(θ_i)) .^ 2.0
+    # g = (4π .* (roughness.σ ./ λ) .* cos(θ_i)) .^ 2.0
+    factor = 4π * roughness.σ * cos(θ_i) * (n / c_0)
 
-    # apply the roughness and return
-    return ν, E .* exp.(-g / 2.0)
+    # apply the roughness and return (@. does all vector operators in 1 step for efficiency)
+    E_out = @. E * exp(-0.5 * (factor * ν)^2)
+    return ν, E_out 
 end
