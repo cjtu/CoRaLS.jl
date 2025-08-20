@@ -31,6 +31,7 @@ ENERGY2 = 100 * energyMult * EeV
 region   = create_region("polar:south,-80,0.0557")
 sc       = CircularOrbit(altitude)
 trigger  = LPDA(Nant=antNum, Ntrig=trigNum, θ0=angle, altitude=altitude, skyfrac=0)
+## Potentially pass phi0 (with actual phi character) for aligning antennas
 kws      = Dict(
     :min_energy => ENERGY1, #30.0EeV,
     :max_energy => ENERGY2,#31.0EeV,
@@ -57,7 +58,12 @@ A = acceptance(ntrials, nbins;
     spacecraft=sc,
     trigger=trigger,
     ice_depth=ice_depth,
+    ice_thickness=1.0m,
+    Nice=regolith_index(StrangwayIndex(), ice_depth),
+    Nbed=regolith_index(StrangwayIndex(), ice_depth), #2.8,
     kws...,
+    indexmodel=StrangwayIndex(), # MACHTAY try this for changing index of refraction
+    #indexmodel=ConstantIndex(), # MACHTAY try this for changing index of refraction
 )
 
 #–– Define MCSE ––#

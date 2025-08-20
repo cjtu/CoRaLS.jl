@@ -141,7 +141,8 @@ def main():
     ax.legend(title="Energy (EeV)", ncol=3, fancybox=True, loc="best")
 
     # Add header info as a textbox in the upper right
-    info_str = ntrials_line #info_line #+ "\n" + ntrials_line
+    info_str = ntrials_line[17:-3] #info_line #+ "\n" + ntrials_line
+    #info_str = ntrials_line[25:-9] #info_line #+ "\n" + ntrials_line
     ax.text(
         0.64, 0.99,
         info_str,

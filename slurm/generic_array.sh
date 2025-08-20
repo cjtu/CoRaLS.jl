@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH -A PAS0654
 #SBATCH --job-name=accpt_array
-#SBATCH --output=out/corals_%A_%akm_6m.out
-#SBATCH --error=err/corals_%A_%akm_6m.err
+#SBATCH --output=out/corals_%A_50km_%am.out
+#SBATCH --error=err/corals_%A_50km_%am.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=04:00:00
@@ -34,7 +34,14 @@ eval ${VAR}=${TASK}
 echo $VAR
 echo ${ALT}
 
-echo "alt=$((5 * ${ALT})) km   energyMult=${ENERGY}   ice=${ICE} m   ant=${ANT}   trig=${TRIG}   angle=${ANG} deg  freqMin=${FREQ1} MHz   TEXP=${TEXP}"
+if [[ $VAR == "ALT" ]]
+then
+				echo "alt=$((5 * ${ALT})) km   energyMult=${ENERGY}   ice=${ICE} m   ant=${ANT}   trig=${TRIG}   angle=${ANG} deg  freqMin=${FREQ1} MHz   TEXP=${TEXP}"
+elif [[ $VAR == "ICE" ]]
+then
+
+				echo "ice=${ICE} m   energyMult=${ENERGY}   alt=$((5 * ${ALT})) km   ant=${ANT}   trig=${TRIG}   angle=${ANG} deg  freqMin=${FREQ1} MHz   TEXP=${TEXP}"
+fi
 # call Julia with (altitude, ice_depth, bin_start, bin_end)
 julia CoRaLS.jl/slurm/generic_acceptance.jl "$ALT" "$ENERGY" "$ICE" "$ANT" "$TRIG" "$ANG" "$FREQ1" "$TEXP" 
 
