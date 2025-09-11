@@ -45,6 +45,17 @@ This is "Curve A" from O&S.
 struct StrangwayDensity <: RegolithDensity end
 
 """
+A regolith density model from Olhoeft & Strangway.
+
+This is "Curve B" from O&S.
+"""
+struct StrangwayDensityCB <: RegolithDensity end
+
+
+
+
+
+"""
 A logarithmic regolith density model from PG's ARIA MC.
 
 This is *WRONG* - do *NOT* use this except when
@@ -102,6 +113,29 @@ function regolith_density(::StrangwayDensity, depth)
 
 end
 
+
+"""
+    regolith_density(::StrangwayDensity, depth)
+
+Calculate the density of the regolith in g/cm^3 for depth
+using the Olhoeft & Strangway curve.
+"""
+function regolith_density(::StrangwayDensityCB, depth)
+
+    # a sanity check for when this called outside the regolith
+    depth < 0.0cm && return 0.0g / cm^3
+
+    # we define a surface density for the minimum value of the LUT
+    depth <= 2.3e-16cm && return 0.80015g / cm^3
+
+    # a sanity check for when this called outside the regolith
+    depth > 23.80m && return StrangwayDensityLUT(23.80m)
+
+    # and now just evaluate the interpolator at this depth
+    return StrangwayDensityLUT(depth)
+
+end
+
 """
     create_density_lut(N)
 
@@ -109,7 +143,7 @@ Create a LUT of the density as a function of depth
 using "Curve A" from Olhoeft & Strangway. `N` is the
 number of points in the LUT.
 """
-function create_density_lut(N=100)
+function create_density_lut(::StrangwayDensity, N=100)
 
     # first we create a function to evaluate O&S parameterization
     A1 = 0.0323cm
@@ -136,6 +170,45 @@ function create_density_lut(N=100)
 
     return LinearInterpolation(depth, ρ)
 end
+
+
+"""
+    create_density_lut(N)
+
+Create a LUT of the density as a function of depth
+using "Curve B" from Olhoeft & Strangway. `N` is the
+number of points in the LUT.
+"""
+function create_density_lut(::StrangwayDensityCB, N=100)
+
+    # first we create a function to evaluate O&S parameterization
+    A1 = 1.63e-5cm
+    b1 = 7.87cm^3 / g
+    A2 = 2.46e-28cm
+    b2 = 35.7cm^3 / g
+
+    # this is our O&S model for z(ρ)
+    z(ρ) = -1.0cm + A1 * exp(b1 * ρ) + A2 * exp(b2 * ρ)
+
+    # calculate the surface density for the O&S model
+    # solution for z(ρ) = 0
+    ρ_min = -log(A1 / cm) / b1
+
+    # we stop at 1.61g/cm^3 which occurs at 24m below the surface
+    ρ_max = 1.997g / cm^3
+
+    # create an array of densities between the surface
+    # density, and
+    ρ = range(ρ_min, stop=ρ_max, length=N)
+
+    # and evaluate the depths for each of these densities
+    depth = z.(ρ)
+
+    return LinearInterpolation(depth, ρ)
+end
+
+
+
 
 """
     regolith_index(::ConstantIndex, depth)
@@ -174,16 +247,16 @@ A refractive index model from Olhoeft & Strangway.
 """
 function regolith_index(::StrangwayIndex, depth)
     # get the density at this depth - we need this in g/cm^3
-    ρ = regolith_density(StrangwayDensity(), depth) / (g / cm^3)
+    ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
 
     # Dielectric constant fit is done by Olhoeft and Strangway
     # Peter estimated a 10% reduction for lunar PSR's due to the
     # ~80 K temperatures compared to the typical lunar temperatures
     # of O&S, hence the factor of 0.9
-    K = 0.9 * (1.93^ρ)
+    K = 0.9*(1.93^ρ)
 
     return sqrt(K)
 end
 
 # create the LUT for the density as a function of depth
-const StrangwayDensityLUT = create_density_lut()
+const StrangwayDensityLUT = create_density_lut(StrangwayDensityCB())
