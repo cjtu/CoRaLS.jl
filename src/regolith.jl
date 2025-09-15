@@ -52,7 +52,11 @@ This is "Curve B" from O&S.
 struct StrangwayDensityCB <: RegolithDensity end
 
 
+struct CE3LPRDensity <: RegolithDensity end
 
+struct DivinerRadiDensity <: RegolithDensity end
+
+struct LunarSourceBookDensity <: RegolithDensity end
 
 
 """
@@ -76,6 +80,27 @@ function regolith_density(::ConstantDensity, depth)
     return 1.8g / cm^3
 end
 
+function regolith_density(::DivinerRadiDensity, depth)
+    # a sanity check for when this called outside the regolith
+    depth < 0.0m && return 0.0g / cm^3
+
+    rhod = 1.8g / cm^3
+    rhos = 1.1g / cm^3
+    H = 5cm
+    return rhod - (rhod - rhos) * exp(-depth/H)
+end
+
+
+function regolith_density(::LunarSourceBookDensity, depth)
+    # a sanity check for when this called outside the regolith
+    depth < 0.0m && return 0.0g / cm^3
+    num = depth + 12.2cm
+    den = depth + 18cm
+    rho0 = 1.92g / cm^3
+    rho = rho0 * num / den
+    return rho
+end
+
 """
     regolith_density(::OldIncorrectDensity, depth)
 
@@ -89,6 +114,21 @@ function regolith_density(::OldIncorrectDensity, depth)
     k = 0.121g / cm^3
     rho0 = 1.27g / cm^3
     return rho0 + k * log((depth + 1cm) / cm |> Unitful.NoUnits)
+end
+
+
+"""
+    regolith_density(::CE3LPRDensity, depth)
+
+Calculate the density of the regolith in g/cm^3 for depth.
+"""
+function regolith_density(::CE3LPRDensity, depth)
+    # a sanity check for when this called outside the regolith
+    depth < 0.0m && return 0.0g / cm^3
+    rhod = 2.25g / cm^3
+    rhos = 0.85g / cm^3
+    H = 103cm
+    return rhod - (rhod - rhos) * exp(-depth/H)
 end
 
 """
@@ -247,8 +287,8 @@ A refractive index model from Olhoeft & Strangway.
 """
 function regolith_index(::StrangwayIndex, depth)
     # get the density at this depth - we need this in g/cm^3
-    ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
-
+    #ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
+    ρ = regolith_density(CE3LPRDensity(), depth) / (g / cm^3)
     # Dielectric constant fit is done by Olhoeft and Strangway
     # Peter estimated a 10% reduction for lunar PSR's due to the
     # ~80 K temperatures compared to the typical lunar temperatures
