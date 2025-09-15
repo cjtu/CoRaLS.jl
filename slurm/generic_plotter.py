@@ -72,7 +72,7 @@ def get_header_info(file_path):
 def main():
     args = parse_args()
     xcol, xlabel = XCOLUMNS[args.xcol]
-
+    
     # Gather files
     search_pattern = os.path.join(args.input_path, args.pattern)
     all_files = glob.glob(search_pattern)
@@ -103,10 +103,10 @@ def main():
     for idx, E in enumerate(energies):
         sub = df[df["Energy"] == E].sort_values(xcol)
         ax.errorbar(
-            sub[xcol],
-            sub[args.quantity],
-            yerr=sub[args.quantity.replace("Count", "Error")],
-            color=colors[idx],
+            np.array(sub[xcol]),
+            2*np.array(sub[args.quantity]),
+            yerr=2*np.array(sub[args.quantity.replace("Count", "Error")]),
+            color=np.array(colors[idx]),
             marker='o',
             linestyle='-',
             label=f"{E:.3f}",
@@ -120,9 +120,9 @@ def main():
     }).reset_index()
 
     ax.errorbar(
-        total[xcol],
-        total[args.quantity],
-        yerr=total[args.quantity.replace("Count", "Error")],
+        np.array(total[xcol]),
+        2*np.array(total[args.quantity]),
+        yerr=2*np.array(total[args.quantity.replace("Count", "Error")]),
         color="black",
         marker="s",
         linestyle="--",
