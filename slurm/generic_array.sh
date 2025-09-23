@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-#SBATCH -A PAS0654
+#SBATCH -A PAS2277
 #SBATCH --job-name=accpt_array
+#SBATCH --mail-type=BEGIN,END,FAIL ## This is so you get an email of when the job starts and finishes
 #SBATCH --output=out/corals_%A_50km_%am.out
 #SBATCH --error=err/corals_%A_50km_%am.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=04:00:00
+#SBATCH --time=14:00:00
 #SBATCH --mem=4G
 
 ## Example: sbatch --array=1-20 --export=ALL,ENERGY=1,ICE=5 array_altitude.sh
 ## Example: sbatch --array=1-20 --export=ALL,ALT=1,ENERGY=1,ICE=5,ANT=4,TRIG=4,ANG=-90,FREQ1=300,TEXP=7,VAR=ALT array_altitude.sh
 
-cd /users/PAS0654/machtay1/new_corals/
+cd ~/../../../fs/scratch/PAS2277/linton93/CoRaLS_MC/
 
 ## Set the variables we read in
 

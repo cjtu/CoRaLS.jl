@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH -A PAS0654
+#SBATCH -A PAS2277
 #SBATCH --job-name=accpt_array
 #SBATCH --output=out/corals_%akm_10m.out
 #SBATCH --error=err/corals_%akm_10m.err
@@ -9,7 +9,7 @@
 #SBATCH --mem=4G
 #SBATCH --array=1-7            # number of energy bins
 
-cd /users/PAS0654/machtay1/new_corals/
+cd ~/../../../fs/scratch/PAS2277/linton93/CoRaLS_MC/
 
 #ENERGY=$1     # in km
 #ICE=$2     # in m

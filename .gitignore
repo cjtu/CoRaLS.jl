@@ -5,3 +5,9 @@
 .DS_Store
 *.cov
 *.swp
+/slurm/err
+/slurm/out
+/slurm/logs
+*.zip
+/slurm/*.png
+/slurm/Data

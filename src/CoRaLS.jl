@@ -28,7 +28,8 @@ export sky_temperature
 
 # exports from regolith.jl
 export regolith_density, regolith_index
-export ConstantIndex, SurfaceDeepIndex, StrangwayIndex, ConstantDensity, StrangwayDensity
+export ConstantIndex, SurfaceDeepIndex, StrangwayIndex, ConstantDensity, StrangwayDensity, StrangwayDensityCB, CE3LPRDensity
+#regolith_density(CE3LPRDensity(), )
 
 # exports from surface.jl
 export NoSlope, GaussianSlope, NoRoughness, GaussianRoughness

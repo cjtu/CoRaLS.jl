@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH -A PAS0654
+#SBATCH -A PAS2277
 #SBATCH --job-name=accpt_array
 #SBATCH --output=logs/corals_50km_10m_%a.out
 #SBATCH --error=logs/corals_50km_10m_%a.err
@@ -9,7 +9,7 @@
 #SBATCH --mem=4G
 #SBATCH --array=1-7            # number of energy bins
 
-cd /users/PAS0654/machtay1/new_corals
+cd ~/../../../fs/scratch/PAS2277/linton93/CoRaLS_MC/
 
 #ALT=$1     # in km
 #ICE=$2     # in m
@@ -22,6 +22,6 @@ TASK1=$IDX
 
 echo "[$SLURM_ARRAY_JOB_ID:$IDX]  alt=${ALT} km   ice=${ICE} m   task_range=${TASK1}-${TASK2}"
 # call Julia with (altitude, ice_depth, bin_start, bin_end)
-julia compute_acceptance.jl "$ALT" "$ICE" "$TASK1" 
+julia ./CoRaLS.jl/slurm/compute_acceptance.jl "$ALT" "$ICE" "$TASK1" 
 
-#echo "Done!"
+echo "Done!"
