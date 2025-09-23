@@ -3,3 +3,5 @@
 /tmp
 .vscode
 .DS_Store
+*.cov
+*.swp
