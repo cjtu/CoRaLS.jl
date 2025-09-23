@@ -58,6 +58,8 @@ struct DivinerRadiDensity <: RegolithDensity end
 
 struct LunarSourceBookDensity <: RegolithDensity end
 
+struct CE4LPRDensity_Dong2020 <: RegolithDensity end
+
 
 """
 A logarithmic regolith density model from PG's ARIA MC.
@@ -101,6 +103,16 @@ function regolith_density(::LunarSourceBookDensity, depth)
     return rho
 end
 
+function regolith_density(::CE4LPRDensity_Dong2020, depth)
+    # a sanity check for when this called outside the regolith
+    depth < 0.0m && return 0.0g / cm^3
+    num = 630*depth + 3250cm
+    den = depth + 1480cm
+    rho0 = log10(1.919)
+    rho = (1/rho0) * log10(num / den)g / cm^3
+    return rho
+end
+
 """
     regolith_density(::OldIncorrectDensity, depth)
 
@@ -131,6 +143,14 @@ function regolith_density(::CE3LPRDensity, depth)
     return rhod - (rhod - rhos) * exp(-depth/H)
 end
 
+function regolith_density(::RegolithDensity, depth)
+    # a sanity check for when this called outside the regolith
+    depth < 0.0m && return 0.0g / cm^3
+
+    DensityLUT(::RegolithDensity, depth)
+    return rhod - (rhod - rhos) * exp(-depth/H)
+end
+
 """
     regolith_density(::StrangwayDensity, depth)
 
@@ -144,6 +164,7 @@ function regolith_density(::StrangwayDensity, depth)
 
     # we define a surface density for the minimum value of the LUT
     depth <= 2.3e-16cm && return 0.80015g / cm^3
+    ## TODO: FIGURE OUT WHAT THE MAX DEPTH SHOULD BE APPLY TO ALL LUTS
 
     # a sanity check for when this called outside the regolith
     depth > 23.80m && return StrangwayDensityLUT(23.80m)
@@ -166,13 +187,14 @@ function regolith_density(::StrangwayDensityCB, depth)
     depth < 0.0cm && return 0.0g / cm^3
 
     # we define a surface density for the minimum value of the LUT
-    depth <= 2.3e-16cm && return 0.80015g / cm^3
+    depth <= 2.3e-16cm && return 0.80015g / cm^3 ## TODO: CHANGE THE MINIMU AND MAX DENSITY VALUES FOR THIS FUNCTION
+    ## TODO: FIGURE OUT WHAT THE MAX DEPTH SHOULD BE APPLY TO ALL LUTS
 
     # a sanity check for when this called outside the regolith
-    depth > 23.80m && return StrangwayDensityLUT(23.80m)
+    depth > 23.80m && return StrangwayDensityCB_LUT(23.80m)
 
     # and now just evaluate the interpolator at this depth
-    return StrangwayDensityLUT(depth)
+    return StrangwayDensityCB_LUT(depth)
 
 end
 
@@ -287,8 +309,8 @@ A refractive index model from Olhoeft & Strangway.
 """
 function regolith_index(::StrangwayIndex, depth)
     # get the density at this depth - we need this in g/cm^3
-    #ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
-    ρ = regolith_density(CE3LPRDensity(), depth) / (g / cm^3)
+    ρ = regolith_density(StrangwayDensity(), depth) / (g / cm^3)
+    #ρ = regolith_density(CE4LPRDensity_Dong2020(), depth) / (g / cm^3)
     # Dielectric constant fit is done by Olhoeft and Strangway
     # Peter estimated a 10% reduction for lunar PSR's due to the
     # ~80 K temperatures compared to the typical lunar temperatures
@@ -298,5 +320,8 @@ function regolith_index(::StrangwayIndex, depth)
     return sqrt(K)
 end
 
+
+
 # create the LUT for the density as a function of depth
-const StrangwayDensityLUT = create_density_lut(StrangwayDensityCB())
+const StrangwayDensityLUT = create_density_lut(StrangwayDensity())
+const StrangwayDensityCB_LUT = create_density_lut(StrangwayDensityCB())

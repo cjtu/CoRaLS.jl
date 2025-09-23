@@ -59,8 +59,8 @@ A = acceptance(ntrials, nbins;
     trigger=trigger,
     ice_depth=ice_depth,
     ice_thickness=1.0m,
-    Nice=regolith_index(StrangwayIndex(), ice_depth),
-    Nbed=regolith_index(StrangwayIndex(), ice_depth), #2.8,
+    Nice= 1.483, ##regolith_index(StrangwayIndex(), ice_depth), ## Peter on call (Sept. 11, 2025) said ice permittivity should be 2.2
+    Nbed=  regolith_index(StrangwayIndex(), ice_depth), # Nbed = 2.56, this is based on anorthosite P. Linton uses for rocks in volume scattering sims
     kws...,
     indexmodel=StrangwayIndex(), # MACHTAY try this for changing index of refraction
     #indexmodel=ConstantIndex(), # MACHTAY try this for changing index of refraction

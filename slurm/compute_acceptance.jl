@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 
+
 import Pkg
 # Activate the CoRaLS.jl project
 Pkg.activate("CoRaLS.jl")    # adjust if your script lives elsewhere
@@ -13,6 +14,7 @@ if length(ARGS) != 3
     println(stderr, "Usage: julia acceptance.jl <altitude_km> <ice_depth_m>")
     exit(1)
 end
+
 
 # convert to Unitful quantities
 altitude = parse(Float64, ARGS[1])km
@@ -35,8 +37,9 @@ kws      = Dict(
     :max_tries  => 100,
     :simple_area=> true,
 )
-ntrials = 100000
+ntrials = 10000000
 nbins   = 1
+
 
 #–– Run acceptance ––#
 A = acceptance(ntrials, nbins;
@@ -46,6 +49,8 @@ A = acceptance(ntrials, nbins;
     ice_depth=ice_depth,
     kws...,
 )
+
+println("FINISHED RUNNING THE ACCEPTANCE")
 
 #–– Define MCSE ––#
 function mcse(count::Int, n::Int)
