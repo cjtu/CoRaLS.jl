@@ -517,7 +517,8 @@ function compute_reflected(::ScalarGeometry,
     θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
 
-    # For reflected, emission is in the -normal direction
+    # For reflected emission, the emission angle is reversed (π added to θ_emit)
+    # to account for the change in direction due to reflection at the surface.
     emit = emission_vector(view, origin, π + θ_emit)
 
     # calculate the off-axis angle - angle between emission and axis

@@ -1,3 +1,4 @@
+using Test
 using CoRaLS: 
     random_north_pole_point,
     random_south_pole_point,
@@ -17,9 +18,7 @@ using CoRaLS:
     SVector,
     norm,
     normalize
-using Test
 using LinearAlgebra
-using Unitful
 using StaticArrays
 
 @testset verbose = true "geometry.jl" begin
@@ -174,4 +173,54 @@ using StaticArrays
         @test (norm(intersection) - radius) / radius < 1e-6
     end
 end
+
+    @testset "Emission Geometry Validation" begin
+        Rmoon = ustrip(CoRaLS.Rmoon)
+        
+        # Test cases
+        struct TestCase
+            name::String
+            surface::SVector{3, Float64}
+            antenna::SVector{3, Float64}
+        end
+
+        test_cases = [
+            TestCase("Equator", SVector{3}(Rmoon, 0.0, 0.0), SVector{3}(Rmoon + 100.0, 0.0, 0.0)),
+            TestCase("North Pole", SVector{3}(0.0, 0.0, Rmoon), SVector{3}(0.0, 0.0, Rmoon + 100.0)),
+            TestCase("45 deg Latitude", SVector{3}(Rmoon/sqrt(2), 0.0, Rmoon/sqrt(2)), SVector{3}((Rmoon+100.0)/sqrt(2), 0.0, (Rmoon+100.0)/sqrt(2))),
+            TestCase("Off-axis view", SVector{3}(Rmoon, 0.0, 0.0), SVector{3}(0.0, Rmoon + 100.0, 0.0)),
+        ]
+
+        θ_emits_deg = [0.0, 10.0, 45.0, 89.0, 90.0]
+        θ_emits = deg2rad.(θ_emits_deg)
+
+        for tc in test_cases
+            @testset "$(tc.name)" begin
+                view = normalize(tc.antenna - tc.surface)
+                
+                for θ_emit in θ_emits
+                    emit = CoRaLS.emission_vector(view, tc.surface, θ_emit)
+                    normal = normalize(tc.surface)
+
+                    # Test emission vector is a unit vector
+                    @test norm(emit) ≈ 1.0 atol=1e-10
+
+                    # Test if the angle between emit and normal is θ_emit
+                    # Dot product of two unit vectors is cos of the angle between them.
+                    dot_product = clamp(dot(emit, normal), -1.0, 1.0)
+                    @test acos(dot_product) ≈ θ_emit atol=1e-9
+
+                    # Edge cases
+                    if isapprox(θ_emit, 0.0, atol=1e-9)
+                        # For θ_emit = 0, emit should be parallel to normal
+                        @test dot(emit, normal) ≈ 1.0 atol=1e-9
+                    elseif isapprox(θ_emit, π/2, atol=1e-9)
+                        # For θ_emit = π/2, emit should be perpendicular to normal
+                        @test abs(dot(emit, normal)) < 1e-9
+                    end
+                end
+            end
+        end
+    end
+
 ;
