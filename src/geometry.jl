@@ -616,6 +616,46 @@ function intersect_with_sphere(start, direction, radius)
 end
 
 """
+    emission_vector(view::AbstractVector, surface::AbstractVector, theta_emit::Real)
+Return the emission unit vector.
+This function calculates the normal and tangent vectors at the surface and
+constructs the emission vector. It handles the degenerate case where the view
+vector is parallel to the normal vector.
+"""
+function emission_vector(view::AbstractVector, surface::AbstractVector, theta_emit::Real)
+    normal = normalize(surface)
+    
+    # Calculate tangent vector (proj)
+    proj = view - dot(view, normal) * normal
+    tangent_norm = norm(proj)
+
+    # If view and normal are parallel, tangent is ill-defined.
+    # In this case, any vector perpendicular to normal is a valid tangent.
+    # We can construct one using a fixed perpendicular vector.
+    if tangent_norm < 1e-9
+        # Find a vector not parallel to normal
+        temp_vec = abs(normal[1]) < 0.9 ? SA[1.0, 0.0, 0.0] : SA[0.0, 1.0, 0.0]
+        tangent = normalize(cross(normal, temp_vec))
+    else
+        tangent = proj / tangent_norm
+    end
+
+    emit = cos(theta_emit) * normal + sin(theta_emit) * tangent
+    return normalize(emit) # Ensure it's a unit vector
+end
+
+"""
+    surface_tangent(view::AbstractVector, surface::AbstractVector)
+Return the unit tangent (proj) vector at the surface.
+"""
+function surface_tangent(view::AbstractVector, surface::AbstractVector)
+    normal = surface / norm(surface)
+    proj = view - (dot(view, normal)) * normal
+    nrm = norm(proj)
+    return nrm > 0 ? proj / nrm : proj
+end
+
+"""
     propagate_and_refract(start, antenna, direction, scale, indexmodel)
 Propagate from `start` along `direction` to `antenna`, refracting at the surface.
 """
@@ -701,4 +741,53 @@ function rotate_vector_to_align(vec::SVector{3}, from::SVector{3}, to::SVector{3
     angle = acos(clamp(dot(from, to), -1.0, 1.0))
     rot = AngleAxis(angle, (axis / axis_norm)...)
     return SVector{3}(rot * vec)
+end
+
+@testset "Emission Geometry Validation" begin
+    Rmoon = ustrip(CoRaLS.Rmoon)
+    
+    # Test cases
+    struct TestCase
+        name::String
+        surface::SVector{3, Float64}
+        antenna::SVector{3, Float64}
+    end
+
+    test_cases = [
+        TestCase("Equator", SVector{3}(Rmoon, 0.0, 0.0), SVector{3}(Rmoon + 100.0, 0.0, 0.0)),
+        TestCase("North Pole", SVector{3}(0.0, 0.0, Rmoon), SVector{3}(0.0, 0.0, Rmoon + 100.0)),
+        TestCase("45 deg Latitude", SVector{3}(Rmoon/sqrt(2), 0.0, Rmoon/sqrt(2)), SVector{3}((Rmoon+100.0)/sqrt(2), 0.0, (Rmoon+100.0)/sqrt(2))),
+        TestCase("Off-axis view", SVector{3}(Rmoon, 0.0, 0.0), SVector{3}(0.0, Rmoon + 100.0, 0.0)),
+    ]
+
+    θ_emits_deg = [0.0, 10.0, 45.0, 89.0, 90.0]
+    θ_emits = deg2rad.(θ_emits_deg)
+
+    for tc in test_cases
+        @testset "$(tc.name)" begin
+            view = normalize(tc.antenna - tc.surface)
+            
+            for θ_emit in θ_emits
+                emit = CoRaLS.emission_vector(view, tc.surface, θ_emit)
+                normal = normalize(tc.surface)
+
+                # Test emission vector is a unit vector
+                @test norm(emit) ≈ 1.0 atol=1e-10
+
+                # Test if the angle between emit and normal is θ_emit
+                # Dot product of two unit vectors is cos of the angle between them.
+                dot_product = clamp(dot(emit, normal), -1.0, 1.0)
+                @test acos(dot_product) ≈ θ_emit atol=1e-9
+
+                # Edge cases
+                if isapprox(θ_emit, 0.0, atol=1e-9)
+                    # For θ_emit = 0, emit should be parallel to normal
+                    @test dot(emit, normal) ≈ 1.0 atol=1e-9
+                elseif isapprox(θ_emit, π/2, atol=1e-9)
+                    # For θ_emit = π/2, emit should be perpendicular to normal
+                    @test abs(dot(emit, normal)) < 1e-9
+                end
+            end
+        end
+    end
 end

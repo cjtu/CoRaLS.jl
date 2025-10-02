@@ -13,5 +13,4 @@ using Test
     include("ut_fresnel.jl");
     include("ut_ice.jl");    
     include("ut_spectrum.jl");
-    include("ut_simulate_emit.jl");
 end

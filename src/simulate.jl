@@ -344,13 +344,6 @@ function compute_direct(::ScalarGeometry,
     # and the total distance in vacuum
     Dvacuum = norm(obs)
 
-
-    # Calculate the normal and tangent (proj) at the emission point (Xmax)
-    normal_Xmax = Xmax / norm(Xmax)
-    # Project the view vector onto the plane perpendicular to normal_Xmax
-    proj_Xmax = view - (view ⋅ normal_Xmax) * normal_Xmax
-    proj_Xmax /= norm(proj_Xmax) # make sure it is normalized
-
     # calculate the optical invariant for this event
     invariant = Nsurf * Rmoon * sin(θ_i)
 
@@ -358,10 +351,8 @@ function compute_direct(::ScalarGeometry,
     # vector at the location of Xmax
     θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
-
     # calculate the emission vector from the two component vectors at Xmax
-    emit = cos(θ_emit) * normal_Xmax + sin(θ_emit) * proj_Xmax
-    emit /= norm(emit) # make sure it is normalized
+    emit = emission_vector(view, origin, θ_emit)
 
     # calculate the off-axis angle - angle between emission and axis
     ψ = acos(emit ⋅ axis)
@@ -373,9 +364,9 @@ function compute_direct(::ScalarGeometry,
         density=regolith_density(densitymodel, depth),
         ν_min=ν_min, ν_max=ν_max, kwargs...)
 
+
     # Define proj as the tangent at the surface for use in incident and polarization calculations
-    proj = view - (view ⋅ normal) * normal
-    proj /= norm(proj) # make sure it is normalized
+    proj = surface_tangent(view, origin)
 
     # the vector incident at the surface
     incident = cos(θ_i) * normal + sin(θ_i) * proj
@@ -509,11 +500,9 @@ function compute_reflected(::ScalarGeometry,
     # and the total distance in vacuum
     Dvacuum = norm(obs)
 
-    # project the viw  onto the local horizontal - this is used to
-    # shift the location of Xmax back along the local horizontal
-    # this defines the horizontal unit-vector in our local coordinate system
-    proj = view - (view ⋅ normal) * normal
-    proj /= norm(proj) # make sure it is normalized
+
+    # Use geometry helpers for tangent at the surface
+    proj = surface_tangent(view, origin)
 
     # calculate the approximate location of Xmax in our system
     # start at the surface - go "down" by `depth` and then "back"
@@ -527,9 +516,9 @@ function compute_reflected(::ScalarGeometry,
     # vector at the location of Xmax
     θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
-    # calculate the emission vector from our two component vectors
-    emit = -cos(θ_emit) * normal + sin(θ_emit) * proj
-    emit /= norm(emit) # make sure it is normalized
+
+    # For reflected, emission is in the -normal direction
+    emit = emission_vector(view, origin, π + θ_emit)
 
     # calculate the off-axis angle - angle between emission and axis
     ψ = acos(emit ⋅ axis)

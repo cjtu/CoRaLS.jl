@@ -17,6 +17,10 @@ using CoRaLS:
     SVector,
     norm,
     normalize
+using Test
+using LinearAlgebra
+using Unitful
+using StaticArrays
 
 @testset verbose = true "geometry.jl" begin
 
