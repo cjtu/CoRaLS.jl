@@ -344,10 +344,12 @@ function compute_direct(::ScalarGeometry,
     # and the total distance in vacuum
     Dvacuum = norm(obs)
 
-    # project this  onto the local horizontal - this is used to
-    # shift the location of Xmax back along the local horizontal
-    proj = view - (view ⋅ normal) * normal
-    proj /= norm(proj) # make sure it is normalized
+
+    # Calculate the normal and tangent (proj) at the emission point (Xmax)
+    normal_Xmax = Xmax / norm(Xmax)
+    # Project the view vector onto the plane perpendicular to normal_Xmax
+    proj_Xmax = view - (view ⋅ normal_Xmax) * normal_Xmax
+    proj_Xmax /= norm(proj_Xmax) # make sure it is normalized
 
     # calculate the optical invariant for this event
     invariant = Nsurf * Rmoon * sin(θ_i)
@@ -356,8 +358,9 @@ function compute_direct(::ScalarGeometry,
     # vector at the location of Xmax
     θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
 
-    # calculate the emission vector from our two component vectors
-    emit = cos(θ_emit) * normal + sin(θ_emit) * proj
+
+    # calculate the emission vector from the two component vectors at Xmax
+    emit = cos(θ_emit) * normal_Xmax + sin(θ_emit) * proj_Xmax
     emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
@@ -370,10 +373,9 @@ function compute_direct(::ScalarGeometry,
         density=regolith_density(densitymodel, depth),
         ν_min=ν_min, ν_max=ν_max, kwargs...)
 
-    # calculate the incident polarization vector for the direct emission
-    # pol = (axis × emit) × emit
-    pol = -emit × (emit × axis)
-    pol /= norm(pol) # fixes some tiny rounding errors
+    # Define proj as the tangent at the surface for use in incident and polarization calculations
+    proj = view - (view ⋅ normal) * normal
+    proj /= norm(proj) # make sure it is normalized
 
     # the vector incident at the surface
     incident = cos(θ_i) * normal + sin(θ_i) * proj
@@ -405,6 +407,11 @@ function compute_direct(::ScalarGeometry,
     tpar, tperp = surface_transmission(roughnessmodel, divergencemodel,
         θ_i, Nsurf, Drego, Dvacuum)
 
+    # calculate the incident polarization vector for the direct emission
+    # pol = (axis × emit) × emit
+    pol = -emit × (emit × axis)
+    pol /= norm(pol) # fixes some tiny rounding errors
+    
     # project `pol` onto `npar` and `nperp`, apply Fresnel,
     # and then recombine into the transmitted polarization vector
     # poltr = tperp*(pol ⋅ nperp)*nperp + tpar*(pol ⋅ npar)*npar
