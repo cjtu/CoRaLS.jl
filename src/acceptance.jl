@@ -44,7 +44,7 @@ Calculates the acceptance of CoRaLS for sub-surface UHECR reflections. It involv
 function acceptance(ntrials::Int, nbins::Int; 
     region::AbstractRegion=AllPSR,
     spacecraft::Spacecraft=CircularOrbit(50.0km),
-    trigger=magnitude_trigger(100μV / m),
+    trigger=magnitude_trigger(67μV / m),
     min_energy=0.1EeV,
     max_energy=600.0EeV,
     min_count=10,
