@@ -57,16 +57,16 @@ See full documentation online at... (coming soon)
 
 ## Developers
 
-To build documentation, run:
+To make and preview docs locally run the following from the root CoRaLS directory:
 
 ```bash
-julia --project=docs/ docs/make.jl
+julia --project=docs -e 'include("docs/make.jl"); using LiveServer; serve(dir="docs/build")'
 ```
 
-To preview docs locally, run, then go to the url in a browser:
+To run tests:
 
 ```bash
-julia --project=docs/ -e 'using LiveServer; serve(dir="docs/build")'
+julia --project=. test/runtests.jl
 ```
 
 ## Citing
