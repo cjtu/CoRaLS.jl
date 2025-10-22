@@ -299,16 +299,6 @@ function calculate_surface_geometry(origin, antenna, slopemodel)
 end
 
 """
-Calculate refracted angle using Snell's law.
-
-Given an incident angle θ_in and refractive indices n_in and n_out,
-returns the refracted angle θ_out using Snell's law: n_in * sin(θ_in) = n_out * sin(θ_out).
-"""
-function refract_angle(θ_in, n_in, n_out)
-    return asin(n_in * sin(θ_in) / n_out)
-end
-
-"""
 Calculate distances in regolith and vacuum for direct ray path.
 
 Returns: (Drego, Dvacuum, x) where x is horizontal distance to Xmax.
@@ -321,20 +311,18 @@ function calculate_direct_distances(depth, θ_reg, obs)
 end
 
 """
-Calculate emission vector at Xmax using optical invariant.
+Calculate emission vector and angle at Xmax.
 
-Returns: (emit, θ_emit, invariant) where emit is normalized emission direction.
+Returns: (emit, θ_emit) where emit is normalized emission direction.
 """
 function calculate_emission_vector(normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, is_reflected=false)
-    invariant = Nsurf * Rmoon * sin(θ_i)
-    θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
+    θ_emit = snell_θt(θ_i, Nsurf, NXmax)
     
     # For reflected, emission goes opposite direction (down then up) so vert component is negative
     down = is_reflected ? -1 : 1
     emit = down * cos(θ_emit) * normal + sin(θ_emit) * proj
     emit /= norm(emit)
-    
-    return emit, θ_emit, invariant
+    return emit, θ_emit
 end
 
 """
@@ -464,8 +452,8 @@ function compute_direct(::ScalarGeometry,
     NXmax = regolith_index(indexmodel, depth)
 
     # Calculate incident and regolith angles using Snell's law
-    θ_i = refract_angle(θ_r, 1.0, Nsurf)
-    θ_reg = refract_angle(θ_i, Nsurf, NXmax)
+    θ_i = snell_θt(θ_r, 1.0, Nsurf)
+    θ_reg = snell_θt(θ_i, Nsurf, NXmax)
 
     # Calculate distances in regolith and vacuum
     Drego, Dvacuum, x = calculate_direct_distances(depth, θ_reg, obs)
@@ -475,7 +463,7 @@ function compute_direct(::ScalarGeometry,
     proj /= norm(proj)
 
     # Calculate emission vector and angles
-    emit, θ_emit, invariant = calculate_emission_vector(normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
+    emit, θ_emit = calculate_emission_vector(normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
     ψ = acos(emit ⋅ axis)
 
     # Calculate the electric field at the surface
@@ -543,8 +531,9 @@ function compute_reflected(::ScalarGeometry,
     Nrego_at_ice = regolith_index(indexmodel, ice_depth)
 
     # Calculate incident and regolith angles using Snell's law
-    θ_i = refract_angle(θ_r, 1.0, Nsurf)
-    θ_reg = refract_angle(θ_i, Nsurf, NXmax)
+    θ_i = snell_θt(θ_r, 1.0, Nsurf)
+    θ_i_true = snell_θt(θ_r_true, 1.0, Nsurf)
+    θ_reg = snell_θt(θ_i_true, Nsurf, NXmax)
 
     # Project view onto local horizontal
     proj = view - (view ⋅ normal) * normal
@@ -558,7 +547,7 @@ function compute_reflected(::ScalarGeometry,
     (x1 + x2) > (2.0 * ice_depth - depth) / sqrt(regolith_index(indexmodel, 0.0m)^2.0 - 1) && return TIR
 
     # Calculate emission vector and angles (reflected case)
-    emit, θ_emit, invariant = calculate_emission_vector(normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, true)
+    emit, θ_emit = calculate_emission_vector(normal, proj, depth, θ_i_true, Nsurf, NXmax, Rmoon, true)
     ψ = acos(emit ⋅ axis)
 
     # Calculate the electric field at the spacecraft
@@ -571,7 +560,7 @@ function compute_reflected(::ScalarGeometry,
     pol = calculate_incident_polarization(emit, axis)
 
     # Calculate angle at ice layer using Snell's law
-    θ_ice = refract_angle(θ_i, Nsurf, Nrego_at_ice)
+    θ_ice = snell_θt(θ_i_true, Nsurf, Nrego_at_ice)
 
     # Construct coordinate systems for incident and transmitted rays
     incident, niperp, nipar = construct_incident_coordinate_system(normal, proj, θ_i)
@@ -585,7 +574,7 @@ function compute_reflected(::ScalarGeometry,
 
     # Calculate Fresnel transmission coefficients at surface
     tpar, tperp = surface_transmission(roughnessmodel, divergencemodel,
-        θ_i, Nsurf, Drego, Dvacuum)
+        θ_i_true, Nsurf, Drego, Dvacuum)
 
     # Calculate transmitted polarization vector and angle
     poltr = rperp * tperp * (pol ⋅ niperp) * ntperp + rpar * tpar * (pol ⋅ nipar) * ntpar
@@ -597,7 +586,7 @@ function compute_reflected(::ScalarGeometry,
         sub_tpar, sub_tperp = fresnel_coeffs(θ_ice, Nrego_at_ice, Nice)[3:4]
 
         # Get refracted angle in ice layer using Spherical Snell's law
-        θ_bed = asin((invariant / ((Rmoon - ice_depth - 0.5 * ice_thickness) * Nice)) |> NoUnits)
+        θ_bed = snell_θt(θ_ice, Nice, Nbed)
 
         # Get reflection coefficient at ice->regolith or ice->bedrock interface
         bed_rpar, bed_rperp = fresnel_coeffs(θ_bed, Nice, Nbed)[1:2]

@@ -7,28 +7,6 @@ using Unitful: m, km, MHz
 
 @testset "Simulate Helper Functions" begin
     
-    @testset "refract_angle" begin
-        # Test air to glass transition (n=1 to n=1.5)
-        θ_in = π/4
-        θ_out = CoRaLS.refract_angle(θ_in, 1.0, 1.5)
-        @test θ_out ≈ asin(sin(π/4) / 1.5)
-        
-        # Test critical angle behavior
-        n1, n2 = 1.5, 1.0
-        θ_critical = asin(n2/n1)
-        θ_out_critical = CoRaLS.refract_angle(θ_critical, n1, n2)
-        @test θ_out_critical ≈ π/2
-        
-        # Test normal incidence (0 degrees)
-        @test CoRaLS.refract_angle(0.0, 1.0, 1.5) ≈ 0.0
-        
-        # Test symmetry: if we refract in then refract out, we get back original angle
-        θ_in = π/6
-        θ_intermediate = CoRaLS.refract_angle(θ_in, 1.0, 1.5)
-        θ_back = CoRaLS.refract_angle(θ_intermediate, 1.5, 1.0)
-        @test θ_back ≈ θ_in
-    end
-    
     @testset "calculate_surface_geometry" begin
         # Create simple test geometry
         origin = SA[0.0km, 0.0km, 1737.4km]  # Point on lunar surface
@@ -85,14 +63,13 @@ using Unitful: m, km, MHz
         Rmoon = 1737.4km
         
         # Test direct emission
-        emit_direct, θ_emit_direct, invariant = CoRaLS.calculate_emission_vector(
+        emit_direct, θ_emit_direct = CoRaLS.calculate_emission_vector(
             normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
         
         @test norm(emit_direct) ≈ 1.0
-        @test invariant ≈ Nsurf * Rmoon * sin(θ_i)
         
         # Test reflected emission (should have opposite vertical component)
-        emit_refl, θ_emit_refl, _ = CoRaLS.calculate_emission_vector(
+        emit_refl, θ_emit_refl = CoRaLS.calculate_emission_vector(
             normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, true)
         
         @test norm(emit_refl) ≈ 1.0

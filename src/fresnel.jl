@@ -42,9 +42,9 @@ out front of the far-field (spherical) divergence.
 struct MixedFieldDivergence <: DivergenceModel end
 
 """
-    θt(θi, ni, nt)
+    snell_θt(θi, ni, nt)
 
-    Calculate the transmitted angle from Snell's Law.
+    Calculate the refracted angle from Snell's Law: n_i * sin(θ_i) = n_t * sin(θ_t)
 """
 snell_θt(θi, ni, nt) = asin((ni / nt) * sin(θi))
 
