@@ -7,29 +7,6 @@ using Unitful: m, km, MHz
 
 @testset "Simulate Helper Functions" begin
     
-    @testset "calculate_surface_geometry" begin
-        # Create simple test geometry
-        origin = SA[0.0km, 0.0km, 1737.4km]  # Point on lunar surface
-        antenna = SA[0.0km, 0.0km, 1757.4km]  # 20km above origin
-        slopemodel = CoRaLS.NoSlope()
-        
-        normal, surface_normal, obs, view = CoRaLS.calculate_surface_geometry(origin, antenna, slopemodel)
-        
-        # Normal should be radially outward and normalized
-        @test norm(normal) ≈ 1.0
-        @test normal ≈ origin / norm(origin)
-        
-        # With NoSlope, surface_normal should equal normal
-        @test surface_normal ≈ normal
-        
-        # Observation vector should point from surface to antenna
-        @test obs ≈ antenna - origin
-        
-        # View should be normalized obs
-        @test norm(view) ≈ 1.0
-        @test view ≈ obs / norm(obs)
-    end
-    
     @testset "calculate_direct_distances" begin
         depth = 10.0m
         θ_reg = π/4  # 45 degrees

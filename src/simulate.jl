@@ -285,18 +285,6 @@ function propagate_cosmicray(Ecr, surface, SC, trigger;
     return direct, reflected
 end
 
-"""
-Calculate surface geometry: normal vector, surface normal with slope, observation and view vectors.
-
-Returns: (normal, surface_normal, obs, view)
-"""
-function calculate_surface_geometry(origin, antenna, slopemodel)
-    normal = origin / norm(origin)
-    surface_normal = random_surface_normal(slopemodel, normal)
-    obs = antenna - origin
-    view = obs / norm(obs)
-    return normal, surface_normal, obs, view
-end
 
 """
 Calculate distances in regolith and vacuum for direct ray path.
@@ -426,6 +414,35 @@ function calculate_observation_angles(origin, axis, normal, view, antenna)
 end
 
 """
+Initialize common event geometry shared by direct and reflected computations.
+
+Extracts surface geometry, depth, refractive indices, and projection calculations
+that are identical in both direct and reflected signal paths.
+
+Returns: (normal, surface_normal, obs, view, depth, Nsurf, NXmax, proj)
+"""
+function init_event_geometry(origin, antenna, Xmax, indexmodel, slopemodel)
+    # Calculate basic surface geometry
+    normal = origin / norm(origin)
+
+    # Get new normal relative to random sloped surface (due to topography)
+    normal_sloped = random_surface_normal(slopemodel, normal)
+    obs = antenna - origin
+    view = obs / norm(obs)
+    
+    # Calculate depth and refractive indices
+    depth = norm(origin) - norm(Xmax)
+    Nsurf = regolith_index(indexmodel, 0.0m)
+    NXmax = regolith_index(indexmodel, depth)
+    
+    # Project view onto local horizontal for Xmax shift calculations
+    proj = view - (view ⋅ normal) * normal
+    proj /= norm(proj)
+    
+    return normal_sloped, obs, view, depth, Nsurf, NXmax, proj
+end
+
+"""
 Compute the 'direct' RF solution using the scalar geometry.
 """
 function compute_direct(::ScalarGeometry,
@@ -439,17 +456,13 @@ function compute_direct(::ScalarGeometry,
     ν_min=150MHz, ν_max=600MHz,
     kwargs...)
 
-    # Calculate basic surface geometry
-    normal, surface_normal, obs, view = calculate_surface_geometry(origin, antenna, slopemodel)
+    # Initialize common event geometry
+    normal, obs, view, depth, Nsurf, NXmax, proj = 
+        init_event_geometry(origin, antenna, Xmax, indexmodel, slopemodel)
     
     # Calculate exit angle and check for TIR
-    θ_r = acos(view ⋅ surface_normal)
+    θ_r = acos(view ⋅ normal)
     θ_r > π / 2.0 && return TIR
-
-    # Calculate depth and refractive indices
-    depth = norm(origin) - norm(Xmax)
-    Nsurf = regolith_index(indexmodel, 0.0m)
-    NXmax = regolith_index(indexmodel, depth)
 
     # Calculate incident and regolith angles using Snell's law
     θ_i = snell_θt(θ_r, 1.0, Nsurf)
@@ -457,10 +470,6 @@ function compute_direct(::ScalarGeometry,
 
     # Calculate distances in regolith and vacuum
     Drego, Dvacuum, x = calculate_direct_distances(depth, θ_reg, obs)
-
-    # Project view onto local horizontal for Xmax shift calculations
-    proj = view - (view ⋅ normal) * normal
-    proj /= norm(proj)
 
     # Calculate emission vector and angles
     emit, θ_emit = calculate_emission_vector(normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
@@ -516,28 +525,22 @@ function compute_reflected(::ScalarGeometry,
     ν_min=150MHz, ν_max=600MHz,
     kwargs...)
 
-    # Calculate basic surface geometry
-    normal, surface_normal, obs, view = calculate_surface_geometry(origin, antenna, slopemodel)
+    # Initialize common event geometry
+    normal, obs, view, depth, Nsurf, NXmax, proj = 
+        init_event_geometry(origin, antenna, Xmax, indexmodel, slopemodel)
     
     # Calculate exit angle (for geometry) and actual surface angle (for TIR check)
     θ_r = acos(view ⋅ normal)  # Geometric angle
-    θ_r_true = acos(view ⋅ surface_normal)  # Actual surface angle
+    θ_r_true = acos(view ⋅ normal)  # Actual surface angle
     θ_r_true > π / 2.0 && return TIR
 
-    # Calculate depth and refractive indices
-    depth = norm(origin) - norm(Xmax)
-    Nsurf = regolith_index(indexmodel, 0.0m)
-    NXmax = regolith_index(indexmodel, depth)
+    # Calculate additional refractive index at ice depth
     Nrego_at_ice = regolith_index(indexmodel, ice_depth)
 
     # Calculate incident and regolith angles using Snell's law
     θ_i = snell_θt(θ_r, 1.0, Nsurf)
     θ_i_true = snell_θt(θ_r_true, 1.0, Nsurf)
     θ_reg = snell_θt(θ_i_true, Nsurf, NXmax)
-
-    # Project view onto local horizontal
-    proj = view - (view ⋅ normal) * normal
-    proj /= norm(proj)
 
     # Calculate distances for reflected path
     Drego, Dvacuum, x1, x2, source = calculate_reflected_distances(
