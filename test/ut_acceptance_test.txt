@@ -1,0 +1,32 @@
+# Random seed: 1254251
+# Trigger: LPDA(Nant=8, Ntrig=3, θ0=-48.0, altitude=50 km)
+# Acceptance parameters (200000 events, 7 bins):
+#   - region: PolarRegion
+#   aoi: CoRaLS.SouthPoleAOI
+#   aoi_frac: Float64 0.0557
+# 
+#   - min_energy: 6 EeV
+#   - max_energy: 600.0 EeV
+#   - ν_min: 150 MHz
+#   - ν_max: 1000 MHz
+#   - dν: 30 MHz
+#   - geometrymodel: ScalarGeometry()
+#   - indexmodel: StrangwayIndex()
+#   - fieldmodel: ARW()
+#   - divergencemodel: MixedFieldDivergence()
+#   - densitymodel: StrangwayDensity()
+#   - slopemodel: GaussianSlope(0.13264502315156904)
+#   - roughnessmodel: GaussianRoughness(0.03490658503988659)
+#   - iceroughness: GaussianIceRoughness(2.0 cm)
+#   - Nice: 1.305
+#   - Nbed: 1.6
+#   - ice_depth: 5.0 m
+#   - ice_thickness: 1.0 m
+#   - spacecraft: CircularOrbit(50.0 km)
+#   - trigger: #52
+#   - simple_area: true
+Energy_bins: 6.0 15.0713 37.8574 95.0936 238.8643 600.0
+Acceptance_reflected: 59.4961 175.211 350.9262 634.5412 987.4842
+Counts_reflected_1yr: 32.08 18.9605 3.4593 0.1406 0.003
+Acceptance_direct: 1.2605 9.832 20.1682 44.1179 68.3197
+Counts_direct_1yr: 0.6797 1.064 0.1988 0.0098 0.0002
