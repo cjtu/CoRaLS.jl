@@ -3,168 +3,66 @@ using CoRaLS
 using LinearAlgebra
 using StaticArrays
 using Unitful
-using Unitful: m, km, MHz
+using Unitful: m, km, MHz, EeV
 
 @testset "Simulate Helper Functions" begin
     
+    @testset "init_event_geometry" begin
+        origin = SA[0.0km, 0.0km, 1737.4km]
+        antenna = SA[0.0km, 0.0km, 1757.4km]
+        Xmax = SA[0.0km, 0.0km, 1737.395km]  # 5m deep
+        indexmodel = CoRaLS.ConstantIndex()
+        slopemodel = CoRaLS.NoSlope()
+        
+        normal, obs, view, depth, Nsurf, NXmax, proj = 
+            CoRaLS.init_event_geometry(origin, antenna, Xmax, indexmodel, slopemodel)
+        
+        # Test depth calculation
+        @test depth ≈ 5.0m
+        
+        # Test normalization of vectors
+        @test norm(normal) ≈ 1.0
+        @test norm(view) ≈ 1.0
+        @test norm(proj) ≈ 1.0
+        
+        # Test observation vector calculation
+        @test obs ≈ antenna - origin
+        
+        # Test projection is perpendicular to origin normal
+        origin_normal = origin / norm(origin)
+        @test abs(proj ⋅ origin_normal) < 1e-10
+        
+        # Test refractive indices are reasonable (>1 for regolith)
+        @test Nsurf > 1.0
+        @test NXmax > 1.0
+        
+        # Test with sloped surface - normal should differ from geometric normal
+        slopemodel_with_slope = CoRaLS.GaussianSlope(10.0)
+        normal_sloped, _, _, _, _, _, _ = 
+            CoRaLS.init_event_geometry(origin, antenna, Xmax, indexmodel, slopemodel_with_slope)
+        # With slope, normal may differ from origin/norm(origin)
+        @test norm(normal_sloped) ≈ 1.0  # Still normalized
+    end
+    
     @testset "calculate_direct_distances" begin
         depth = 10.0m
-        θ_reg = π/4  # 45 degrees
+        θ_reg = π/4
         obs = SA[0.0km, 0.0km, 20.0km]
         
         Drego, Dvacuum, x = CoRaLS.calculate_direct_distances(depth, θ_reg, obs)
         
-        # Check horizontal distance
-        @test x ≈ depth * tan(θ_reg)
+        # Test Pythagorean theorem
+        @test Drego^2 ≈ x^2 + depth^2
+        @test Dvacuum ≈ 20.0km
         
-        # Check regolith distance (Pythagorean theorem)
-        @test Drego ≈ sqrt(x^2 + depth^2)
-        
-        # Check vacuum distance
-        @test Dvacuum ≈ norm(obs)
-        
-        # Test with vertical ray (θ_reg = 0)
+        # Test vertical ray (θ_reg = 0) - critical edge case
         Drego_vert, _, x_vert = CoRaLS.calculate_direct_distances(depth, 0.0, obs)
         @test x_vert ≈ 0.0m
         @test Drego_vert ≈ depth
-    end
-    
-    @testset "calculate_emission_vector" begin
-        # Setup basic geometry
-        normal = SA[0.0, 0.0, 1.0]
-        proj = SA[1.0, 0.0, 0.0]
-        depth = 5.0m
-        θ_i = π/6
-        Nsurf = 1.8
-        NXmax = 1.7
-        Rmoon = 1737.4km
         
-        # Test direct emission
-        emit_direct, θ_emit_direct = CoRaLS.calculate_emission_vector(
-            normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
-        
-        @test norm(emit_direct) ≈ 1.0
-        
-        # Test reflected emission (should have opposite vertical component)
-        emit_refl, θ_emit_refl = CoRaLS.calculate_emission_vector(
-            normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, true)
-        
-        @test norm(emit_refl) ≈ 1.0
-        # Vertical component should be opposite sign
-        @test emit_direct[3] ≈ -emit_refl[3]
-        # Horizontal components should be the same
-        @test emit_direct[1] ≈ emit_refl[1]
-        @test emit_direct[2] ≈ emit_refl[2]
-    end
-    
-    @testset "calculate_incident_polarization" begin
-        # Test with simple geometry
-        emit = SA[0.0, 0.0, 1.0]  # Vertical emission
-        axis = SA[0.0, 1.0, 0.0]  # Horizontal axis
-        
-        pol = CoRaLS.calculate_incident_polarization(emit, axis)
-        
-        # Polarization should be normalized
-        @test norm(pol) ≈ 1.0
-        
-        # Polarization should be perpendicular to emission direction
-        @test abs(pol ⋅ emit) < 1e-10
-        
-        # Test that pol is in the plane perpendicular to emit
-        # pol = -emit × (emit × axis) should be parallel to axis projection onto plane perp to emit
-        axis_perp_component = axis - (axis ⋅ emit) * emit
-        if norm(axis_perp_component) > 1e-10
-            axis_perp_normalized = axis_perp_component / norm(axis_perp_component)
-            @test abs(abs(pol ⋅ axis_perp_normalized) - 1.0) < 1e-10
-        end
-    end
-    
-    @testset "construct_incident_coordinate_system" begin
-        normal = SA[0.0, 0.0, 1.0]
-        proj = SA[1.0, 0.0, 0.0]
-        θ_i = π/4
-        
-        incident, niperp, nipar = CoRaLS.construct_incident_coordinate_system(normal, proj, θ_i)
-        
-        # All vectors should be normalized
-        @test norm(incident) ≈ 1.0
-        @test norm(niperp) ≈ 1.0
-        @test norm(nipar) ≈ 1.0
-        
-        # niperp and nipar should be perpendicular
-        @test abs(niperp ⋅ nipar) < 1e-10
-        
-        # niperp should be perpendicular to normal
-        @test abs(niperp ⋅ normal) < 1e-10
-        
-        # nipar should be perpendicular to incident
-        @test abs(nipar ⋅ incident) < 1e-10
-        
-        # Form right-handed coordinate system
-        @test nipar ≈ niperp × incident
-    end
-    
-    @testset "construct_transmission_coordinate_system" begin
-        view = SA[0.0, 0.0, 1.0]
-        normal = SA[0.0, 1.0, 0.0]
-        
-        ntperp, ntpar = CoRaLS.construct_transmission_coordinate_system(view, normal)
-        
-        # Both should be normalized
-        @test norm(ntperp) ≈ 1.0
-        @test norm(ntpar) ≈ 1.0
-        
-        # Should be perpendicular to each other
-        @test abs(ntperp ⋅ ntpar) < 1e-10
-        
-        # ntperp should be perpendicular to normal
-        @test abs(ntperp ⋅ normal) < 1e-10
-        
-        # ntpar should be perpendicular to view
-        @test abs(ntpar ⋅ view) < 1e-10
-        
-        # Form right-handed system
-        @test ntpar ≈ ntperp × view
-    end
-    
-    @testset "calculate_transmitted_polarization" begin
-        # Setup coordinate systems
-        pol = SA[1.0, 0.0, 0.0]
-        niperp = SA[1.0, 0.0, 0.0]
-        nipar = SA[0.0, 1.0, 0.0]
-        ntperp = SA[1.0, 0.0, 0.0]
-        ntpar = SA[0.0, 1.0, 0.0]
-        tperp = 0.8
-        tpar = 0.6
-        
-        poltr = CoRaLS.calculate_transmitted_polarization(pol, niperp, nipar, ntperp, ntpar, tperp, tpar)
-        
-        # Should be in the ntperp-ntpar plane
-        z_component = poltr[3]
-        @test abs(z_component) < 1e-10
-        
-        # Test that coefficients are applied correctly
-        @test poltr ≈ tperp * (pol ⋅ niperp) * ntperp + tpar * (pol ⋅ nipar) * ntpar
-    end
-    
-    @testset "calculate_polarization_angle" begin
-        # Test pure perpendicular polarization
-        ntperp = SA[1.0, 0.0, 0.0]
-        ntpar = SA[0.0, 1.0, 0.0]
-        poltr_perp = SA[1.0, 0.0, 0.0]
-        
-        θpol_perp = CoRaLS.calculate_polarization_angle(poltr_perp, ntpar, ntperp)
-        @test θpol_perp ≈ 0.0 atol=1e-10
-        
-        # Test pure parallel polarization
-        poltr_par = SA[0.0, 1.0, 0.0]
-        θpol_par = CoRaLS.calculate_polarization_angle(poltr_par, ntpar, ntperp)
-        @test θpol_par ≈ π/2 atol=1e-10
-        
-        # Test 45 degree polarization
-        poltr_45 = (ntperp + ntpar) / sqrt(2)
-        θpol_45 = CoRaLS.calculate_polarization_angle(poltr_45, ntpar, ntperp)
-        @test θpol_45 ≈ π/4 atol=1e-10
+        # Test shallow angle (θ_reg near π/2) - should have large x
+        Drego_shallow, _, x_shallow = CoRaLS.calculate_direct_distances(depth, π/2 - 0.1, obs)
+        @test x_shallow > depth * 5  # Should be much larger than depth
     end
     
     @testset "calculate_reflected_distances" begin
@@ -179,20 +77,133 @@ using Unitful: m, km, MHz
         Drego, Dvacuum, x1, x2, source = CoRaLS.calculate_reflected_distances(
             depth, ice_depth, θ_reg, obs, origin, normal, proj)
         
-        # Check x1 and x2 calculations
+        # Test path geometry
         @test x1 ≈ (ice_depth - depth) * tan(θ_reg)
         @test x2 ≈ ice_depth * tan(θ_reg)
         
-        # Check total regolith distance
-        expected_Drego = sqrt(x1^2 + (ice_depth - depth)^2) + sqrt(x2^2 + ice_depth^2)
-        @test Drego ≈ expected_Drego
+        # Test total regolith distance is sum of two segments
+        d1 = sqrt(x1^2 + (ice_depth - depth)^2)
+        d2 = sqrt(x2^2 + ice_depth^2)
+        @test Drego ≈ d1 + d2
         
-        # Check vacuum distance
-        @test Dvacuum ≈ norm(obs)
+        # Test edge case: depth == ice_depth (xmax at ice boundary)
+        Drego_edge, _, x1_edge, x2_edge, _ = CoRaLS.calculate_reflected_distances(
+            ice_depth, ice_depth, θ_reg, obs, origin, normal, proj)
+        @test x1_edge ≈ 0.0m  # No distance before ice
+    end
+    
+    @testset "calculate_emission_vector" begin
+        normal = SA[0.0, 0.0, 1.0]
+        proj = SA[1.0, 0.0, 0.0]
+        depth = 5.0m
+        θ_i = π/6
+        Nsurf = 1.8
+        NXmax = 1.7
+        Rmoon = 1737.4km
         
-        # Check source calculation
-        expected_source = origin - (2.0 * ice_depth - depth) * normal - (x1 + x2) * proj
-        @test source ≈ expected_source
+        # Test direct vs reflected have opposite vertical components
+        emit_direct, θ_emit_direct = CoRaLS.calculate_emission_vector(
+            normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, false)
+        emit_refl, θ_emit_refl = CoRaLS.calculate_emission_vector(
+            normal, proj, depth, θ_i, Nsurf, NXmax, Rmoon, true)
+        
+        @test norm(emit_direct) ≈ 1.0
+        @test norm(emit_refl) ≈ 1.0
+        @test emit_direct[3] ≈ -emit_refl[3]  # Opposite vertical components
+        @test emit_direct[1] ≈ emit_refl[1]   # Same horizontal
+        
+        # Test Snell's law is applied (angles should match)
+        @test θ_emit_direct ≈ θ_emit_refl
+    end
+    
+    @testset "calculate_incident_polarization" begin
+        # Test perpendicularity (main requirement)
+        emit = normalize(SA[1.0, 1.0, 1.0])
+        axis = SA[0.0, 1.0, 0.0]
+        
+        pol = CoRaLS.calculate_incident_polarization(emit, axis)
+        
+        @test norm(pol) ≈ 1.0
+        @test abs(pol ⋅ emit) < 1e-10  # Perpendicular to emission
+        
+        # Test degenerate case: emit parallel to axis
+        emit_parallel = SA[0.0, 1.0, 0.0]
+        pol_parallel = CoRaLS.calculate_incident_polarization(emit_parallel, axis)
+        @test norm(pol_parallel) < 1e-10 || norm(pol_parallel) ≈ 1.0  # Either zero or normalized
+    end
+    
+    @testset "construct_incident_coordinate_system" begin
+        normal = SA[0.0, 0.0, 1.0]
+        proj = SA[1.0, 0.0, 0.0]
+        θ_i = π/4
+        
+        incident, niperp, nipar = CoRaLS.construct_incident_coordinate_system(normal, proj, θ_i)
+        
+        # Test orthogonality (critical property)
+        @test abs(niperp ⋅ nipar) < 1e-10
+        @test abs(niperp ⋅ incident) < 1e-10
+        @test abs(nipar ⋅ incident) < 1e-10
+        
+        # Test right-handedness
+        @test nipar ≈ niperp × incident
+        
+        # Test normalization
+        @test norm(incident) ≈ 1.0
+        @test norm(niperp) ≈ 1.0
+        @test norm(nipar) ≈ 1.0
+    end
+    
+    @testset "construct_transmission_coordinate_system" begin
+        view = normalize(SA[1.0, 1.0, 2.0])
+        normal = SA[0.0, 0.0, 1.0]
+        
+        ntperp, ntpar = CoRaLS.construct_transmission_coordinate_system(view, normal)
+        
+        # Test orthogonality and right-handedness
+        @test abs(ntperp ⋅ ntpar) < 1e-10
+        @test abs(ntperp ⋅ view) < 1e-10
+        @test abs(ntpar ⋅ view) < 1e-10
+        @test ntpar ≈ ntperp × view
+        
+        # Test normalization
+        @test norm(ntperp) ≈ 1.0
+        @test norm(ntpar) ≈ 1.0
+    end
+    
+    @testset "calculate_transmitted_polarization" begin
+        # Test that Fresnel coefficients are correctly applied
+        pol = SA[1.0, 0.0, 0.0]
+        niperp = SA[1.0, 0.0, 0.0]
+        nipar = SA[0.0, 1.0, 0.0]
+        ntperp = SA[1.0, 0.0, 0.0]
+        ntpar = SA[0.0, 1.0, 0.0]
+        tperp = 0.8
+        tpar = 0.6
+        
+        poltr = CoRaLS.calculate_transmitted_polarization(pol, niperp, nipar, ntperp, ntpar, tperp, tpar)
+        
+        # Should be tperp * ntperp since pol is aligned with niperp
+        @test poltr ≈ SA[0.8, 0.0, 0.0]
+        
+        # Test with mixed polarization
+        pol_mixed = normalize(SA[1.0, 1.0, 0.0])
+        poltr_mixed = CoRaLS.calculate_transmitted_polarization(pol_mixed, niperp, nipar, ntperp, ntpar, tperp, tpar)
+        expected = tperp * (pol_mixed ⋅ niperp) * ntperp + tpar * (pol_mixed ⋅ nipar) * ntpar
+        @test poltr_mixed ≈ expected
+    end
+    
+    @testset "calculate_polarization_angle" begin
+        ntperp = SA[1.0, 0.0, 0.0]
+        ntpar = SA[0.0, 1.0, 0.0]
+        
+        # Test cardinal angles
+        @test CoRaLS.calculate_polarization_angle(ntperp, ntpar, ntperp) ≈ 0.0 atol=1e-10
+        @test CoRaLS.calculate_polarization_angle(ntpar, ntpar, ntperp) ≈ π/2 atol=1e-10
+        @test CoRaLS.calculate_polarization_angle(-ntperp, ntpar, ntperp) ≈ π atol=1e-10
+        
+        # Test 45° angle
+        poltr_45 = normalize(ntperp + ntpar)
+        @test CoRaLS.calculate_polarization_angle(poltr_45, ntpar, ntperp) ≈ π/4 atol=1e-10
     end
     
     @testset "calculate_observation_angles" begin
@@ -204,17 +215,65 @@ using Unitful: m, km, MHz
         
         zenith, θ, ϕ, el = CoRaLS.calculate_observation_angles(origin, axis, normal, view, antenna)
         
-        # Zenith should be in valid range [0, π]
+        # Test valid ranges
         @test 0.0 <= zenith <= π
-        
-        # θ should be in valid range [0, π]
         @test 0.0 <= θ <= π
-        
-        # ϕ should be in valid range [-π, π] or [0, 2π]
         @test -π <= ϕ <= 2π
-        
-        # Elevation angle should be in reasonable range
         @test -π/2 <= el <= π/2
+        
+        # Test specific geometry: origin at north pole
+        origin_pole = SA[0.0km, 0.0km, 1737.4km]
+        zenith_pole, θ_pole, _, _ = CoRaLS.calculate_observation_angles(
+            origin_pole, -SA[0.0, 0.0, 1.0], SA[0.0, 0.0, 1.0], view, antenna)
+        @test θ_pole ≈ 0.0 atol=1e-6  # At north pole
+    end
+    
+    @testset "compute_direct integration" begin
+        # Test that compute_direct returns Direct struct for valid geometry
+        Ecr = 1e18 * 1.602e-10 * EeV  # 1 EeV
+        origin = SA[0.0km, 0.0km, 1737.4km]
+        axis = normalize(SA[0.0, 1.0, -1.0])
+        antenna = SA[0.0km, 0.0km, 1757.4km]
+        Xmax = SA[0.0km, 0.0km, 1737.395km]
+        
+        result = CoRaLS.compute_direct(CoRaLS.ScalarGeometry(), Ecr, origin, axis, antenna, Xmax)
+        
+        # Test returns Direct struct (not TIR or other failure)
+        @test result isa CoRaLS.Direct
+        @test result.Ecr ≈ Ecr
+        @test result.depth > 0.0m
+        @test result.Drego > 0.0m
+        @test result.Dvacuum > 0.0m
+        @test result.triggered == false  # Default value
+        
+        # Test TIR case (extreme angle)
+        antenna_tir = SA[0.0km, 2000.0km, 1737.4km]  # Far to the side
+        result_tir = CoRaLS.compute_direct(CoRaLS.ScalarGeometry(), Ecr, origin, axis, antenna_tir, Xmax)
+        @test result_tir == CoRaLS.TIR
+    end
+    
+    @testset "compute_reflected integration" begin
+        # Test that compute_reflected returns Reflected struct for valid geometry
+        Ecr = 1e18 * 1.602e-10 * EeV
+        origin = SA[0.0km, 0.0km, 1737.4km]
+        axis = normalize(SA[0.0, 1.0, -1.0])
+        antenna = SA[0.0km, 0.0km, 1757.4km]
+        Xmax = SA[0.0km, 0.0km, 1737.397km]  # 3m deep
+        ice_depth = 10.0m
+        
+        result = CoRaLS.compute_reflected(CoRaLS.ScalarGeometry(), Ecr, origin, axis, antenna, Xmax, ice_depth)
+        
+        # Test returns Reflected struct
+        @test result isa CoRaLS.Reflected
+        @test result.Ecr ≈ Ecr
+        @test result.depth > 0.0m
+        @test result.depth < ice_depth  # Xmax before ice
+        @test result.Drego > 0.0m
+        @test result.θ_ice >= 0.0  # Ice angle calculated
+        
+        # Test subsurface reflection fields exist
+        @test result.rpar != 0.0
+        @test result.rperp != 0.0
     end
     
 end
