@@ -148,7 +148,7 @@ function regolith_field(::ARW, Ecr, θ,
 
     factor = 1.1222 * Ecr / 100.0EeV / (Drego + Dvacuum)
     E = factor * ARW_RE(θactual, ν) * (1V / 1MHz)
-    Latten = attenuation_length(ν, n, density)
+    Latten = attenuation_length(ν, n, density; kwargs...)
     @. E *= exp(-Drego / Latten)
 
     return ν, E
@@ -209,7 +209,7 @@ function regolith_field(::FORTE{GaussianProfile}, Ecr, θ,
     E = (RE ./ (Drego + Dvacuum)) .|> V / m / MHz
 
     # get the attenuation length at this density
-    Latten = attenuation_length(ν, n, density)
+    Latten = attenuation_length(ν, n, density; kwargs...)
 
     # and apply the attenuation length due to proapgation in regolith
     E .*= exp.(-Drego ./ Latten)
@@ -274,7 +274,7 @@ function regolith_field(::JAM, Ecr, θ,
     E = RE ./ (Drego + Dvacuum)
 
     # get the attenuation length at this density
-    Latten = attenuation_length(ν, n, density)
+    Latten = attenuation_length(ν, n, density; kwargs...)
 
     # and apply the attenuation length due to proapgation in regolith
     E .*= exp.(-Drego ./ Latten)
@@ -302,13 +302,25 @@ Calculate the attenuation length for radio waves in regolith at given frequencie
 # Returns
 - Array of attenuation lengths corresponding to each frequency.
 """
-function attenuation_length(ν, n, density; tanδnorm=6.5e-4)
+function attenuation_length(ν, n, density; tanδnorm=0.001, tand_mag=0.0, kwargs...)
+
+    ## Note from PL: 
+    ## Lab lunar sample data at room temperature has submature highland 
+    ## electric loss tangent at 1e-3 when density normalized. The Submature Highland
+    ## magnetic loss tangent seems to be around 3e-3 or a bit higher at the 300-800 MHz range.
 
     # 1e-3 is Peter's estimate for the density-normalized loss tangent
     # for polar region temperatures. Closer to 7e-4 for PSRs.
     # here we scale it up by the density
     # assuming a density of 1.27g/cm^3 at the surface.
-    tanδ = tanδnorm * (density / (1.0g / cm^3)) |> NoUnits
+
+    ## It is unclear how losses should should scale with temperature. Using
+    ## Barmatz data on Lunar simulants, highland permittivity loss goes down ~40%
+    ## Magnetic highland loss didnt see any noticable change.
+
+    ## PL NOTE: From Lunar sample data, it does not seem like magnetic losses scale much with density
+    ## In low loss limit total loss of each is ~ their sum
+    tanδ = tand_mag + tanδnorm * (density / (1.0g / cm^3)) |> NoUnits
 
     # we need the wavelength for the attenuation length calculation
     λ = c_0 ./ (n .* ν)
