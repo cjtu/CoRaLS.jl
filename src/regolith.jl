@@ -342,7 +342,7 @@ of O&S, hence the low_temp_corr_factor.
 """
 function regolith_index(::StrangwayIndex, depth, low_temp_corr_factor=0.9)
     # get the density at this depth - we need this in g/cm^3
-    ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
+    ρ = regolith_density(StrangwayDensity(), depth) / (g / cm^3)
     K = low_temp_corr_factor*(1.93^ρ)
 
     return sqrt(K)
