@@ -38,16 +38,17 @@ jobs:
           pip install matplotlib
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.12'
+          version: '1'
       - uses: julia-actions/cache@v2
       - name: Install dependencies
         env: 
             PYTHON: "${{ env.pythonLocation }}/bin/python"
+        shell: julia --color=yes --project=docs {0}
         run: |
-          julia --color=yes --project=docs -e '
-            using Pkg;
-            Pkg.develop(PackageSpec(path=pwd()));
-            Pkg.instantiate()'
+          using Pkg
+          Pkg.build("PyCall")
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()
       - name: Build and deploy
         run: julia --color=yes --project=docs docs/make.jl
         env:
