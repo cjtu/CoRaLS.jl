@@ -298,14 +298,11 @@ function compute_direct(::ScalarGeometry,
     roughnessmodel=NoRoughness(),
     ν_min=150MHz, ν_max=600MHz,
     kwargs...)
+    # Normal vector to the origin point on the surface, relative to flat spherical Moon
+    flat_normal = origin / norm(origin)
 
-    # println("Origin: $(origin)")
-
-    # calculate the normalized vector to the point on the surface
-    normal = origin / norm(origin)
-
-    # throw for a random surface normal at this location
-    surface_normal = random_surface_normal(slopemodel, origin / norm(origin))
+    # throw for a random surface normal at this location relative to surface slope distribution
+    surface_normal = random_surface_normal(slopemodel, flat_normal)
 
     # the observation vector is from the surface to the spacecraft
     obs = antenna - origin
@@ -326,7 +323,6 @@ function compute_direct(::ScalarGeometry,
     # get some needed refractive indices
     Nsurf = regolith_index(indexmodel, 0.0m)
     NXmax = regolith_index(indexmodel, depth)
-    # θ_r > fresnel_critical(Nsurf, 1) && return TIR
 
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
@@ -346,7 +342,7 @@ function compute_direct(::ScalarGeometry,
 
     # project this  onto the local horizontal - this is used to
     # shift the location of Xmax back along the local horizontal
-    proj = view - (view ⋅ normal) * normal
+    proj = view - (view ⋅ flat_normal) * flat_normal
     proj /= norm(proj) # make sure it is normalized
 
     # use Snell's law for the emission angle at Xmax (same as θ_reg)
@@ -377,11 +373,11 @@ function compute_direct(::ScalarGeometry,
     pol /= norm(pol) # fixes some tiny rounding errors
 
     # the vector incident at the surface
-    incident = cos(θ_i) * normal + sin(θ_i) * proj
+    incident = cos(θ_i) * surface_normal + sin(θ_i) * proj
     incident /= norm(incident) # make sure it is normalized
 
     # incident at the surface
-    niperp = incident × normal
+    niperp = incident × surface_normal
     niperp /= norm(niperp)
 
     # this vector defines "parallel" to the plane of incident i.e. "pokey"
@@ -390,7 +386,7 @@ function compute_direct(::ScalarGeometry,
     nipar /= norm(nipar)
 
     # the perp. for the refracted emission
-    ntperp = view × normal
+    ntperp = view × surface_normal
     ntperp /= norm(ntperp)
 
     # this vector defines "parallel" to the plane of incident i.e. "pokey"
@@ -415,7 +411,7 @@ function compute_direct(::ScalarGeometry,
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos(normal ⋅ (-axis))
+    zenith = acos(flat_normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin)
@@ -448,12 +444,11 @@ function compute_reflected(::ScalarGeometry,
     iceroughness=NoIceRoughness(),
     ν_min=150MHz, ν_max=600MHz,
     kwargs...)
+    # Normal vector to the origin point on the surface, relative to flat spherical Moon
+    flat_normal = origin / norm(origin)
 
-    # calculate the normalized vector to the point on the surface
-    normal = origin / norm(origin)
-
-    # throw for a random surface normal at this location
-    surface_normal = random_surface_normal(slopemodel, normal)
+    # throw for a random surface normal at this location relative to surface slope distribution
+    surface_normal = random_surface_normal(slopemodel, flat_normal)
 
     # the observation vector is from the surface to the spacecraft
     obs = antenna - origin
@@ -463,14 +458,10 @@ function compute_reflected(::ScalarGeometry,
 
     # the exit angle at the surface to hit the space-craft
     # this is the "refracted" angle
-    θ_r = acos(view ⋅ normal)
-
-    # but that's just geometry - we need the actual surface refraction
-    # angle for checking for TIR
-    θ_r_true = acos(view ⋅ surface_normal)
+    θ_r = acos(view ⋅ surface_normal)
 
     # check that with a random slope, we aren't beyond TIR
-    θ_r_true > π / 2.0 && return TIR
+    θ_r > π / 2.0 && return TIR
 
     # calculate the depth of Xmax w.r.t to the surface
     depth = norm(origin) - norm(Xmax)
@@ -479,7 +470,6 @@ function compute_reflected(::ScalarGeometry,
     Nsurf = regolith_index(indexmodel, 0.0m)
     NXmax = regolith_index(indexmodel, depth)
     Nrego_at_ice = regolith_index(indexmodel, ice_depth)
-    # θ_r > fresnel_critical(Nsurf, 1) && return TIR
     
     # we then calculate the incident angle at the surface consistent
     # with the refracted wave leaving the surface at θ_r
@@ -506,13 +496,13 @@ function compute_reflected(::ScalarGeometry,
     # project the viw  onto the local horizontal - this is used to
     # shift the location of Xmax back along the local horizontal
     # this defines the horizontal unit-vector in our local coordinate system
-    proj = view - (view ⋅ normal) * normal
+    proj = view - (view ⋅ flat_normal) * flat_normal
     proj /= norm(proj) # make sure it is normalized
 
     # calculate the approximate location of Xmax in our system
     # start at the surface - go "down" by `depth` and then "back"
     # along `flat`
-    source = origin - (2.0 * ice_depth - depth) * normal - (x1 + x2) * proj
+    source = origin - (2.0 * ice_depth - depth) * flat_normal - (x1 + x2) * proj
 
     # use Snell's law for the emission angle at Xmax (same as θ_reg)
     θ_emit = θ_reg
@@ -544,13 +534,13 @@ function compute_reflected(::ScalarGeometry,
     θ_ice = asin(Nsurf * sin(θ_i) / Nrego_at_ice)
 
     # the vector incident at the surface
-    incident = cos(θ_i) * normal + sin(θ_i) * proj
+    incident = cos(θ_i) * surface_normal + sin(θ_i) * proj
     incident /= norm(incident) # make sure it is normalized
 
     # incident at the surface
     # TODO: which of these nipar and niperp is correct?  same for direct or no?
-    #niperp = emit × normal
-    niperp = incident × normal
+    #niperp = emit × surface_normal
+    niperp = incident × surface_normal
     niperp /= norm(niperp)
 
     # this vector defines "parallel" to the plane of incident i.e. "pokey"
@@ -560,7 +550,7 @@ function compute_reflected(::ScalarGeometry,
     nipar /= norm(nipar)
 
     # the perp. for the refracted emission
-    ntperp = view × normal
+    ntperp = view × surface_normal
     ntperp /= norm(ntperp)
 
     # this vector defines "parallel" to the plane of incident i.e. "pokey"
@@ -626,7 +616,7 @@ function compute_reflected(::ScalarGeometry,
 
     # calculate the zenith angle of the cosmic ray
     # flip the axis so we get the complement of the angle
-    zenith = acos(normal ⋅ (-axis))
+    zenith = acos(flat_normal ⋅ (-axis))
 
     # get the Lunar-centric angle of the cosmic ray impact point
     θ, ϕ, _ = cartesian_to_spherical(origin)
