@@ -1,10 +1,6 @@
 # Random seed: 1254251
 # Trigger: LPDA(Nant=8, Ntrig=3, θ0=-48.0, altitude=50 km)
 # Acceptance parameters (200000 events, 7 bins):
-#   - region: PolarRegion
-#   aoi: CoRaLS.SouthPoleAOI
-#   aoi_frac: Float64 0.0557
-# 
 #   - min_energy: 6 EeV
 #   - max_energy: 600.0 EeV
 #   - ν_min: 150 MHz
@@ -23,10 +19,13 @@
 #   - ice_depth: 5.0 m
 #   - ice_thickness: 1.0 m
 #   - spacecraft: CircularOrbit(50.0 km)
-#   - trigger: #52
+#   - region: PolarRegion
+#   aoi: CoRaLS.SouthPoleAOI
+#   aoi_frac: Float64 0.0557
+# 
 #   - simple_area: true
 Energy_bins: 6.0 15.0713 37.8574 95.0936 238.8643 600.0
-Acceptance_reflected: 59.4961 175.211 350.9262 634.5412 987.4842
-Counts_reflected_1yr: 32.08 18.9605 3.4593 0.1406 0.003
-Acceptance_direct: 1.2605 9.832 20.1682 44.1179 68.3197
-Counts_direct_1yr: 0.6797 1.064 0.1988 0.0098 0.0002
+Acceptance_reflected: 26.7228 108.4039 255.1274 488.574 786.3067
+Counts_reflected_1yr: 14.4088 11.7309 2.5149 0.1083 0.0024
+Acceptance_direct: 1.2605 10.0841 20.6724 43.3616 65.2945
+Counts_direct_1yr: 0.6797 1.0912 0.2038 0.0096 0.0002
