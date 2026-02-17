@@ -231,7 +231,7 @@ struct FixedPlatform <: Spacecraft
 end
 
 struct CircularOrbit <: Spacecraft 
-    altitude::typeof(10.0km)
+    altitude::typeof(1.0km)
 end
 
 struct EllipticalOrbit <: Spacecraft
