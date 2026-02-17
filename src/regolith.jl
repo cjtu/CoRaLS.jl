@@ -27,6 +27,32 @@ This uses Eq. 1 from Olhoeft and Strangway.
 """
 struct StrangwayIndex <: RegolithIndex end
 
+
+"""
+PL NOTE: Olhoeft and Strangway Curve B regolith index 
+"""
+struct StrangwayIndexCB <: RegolithIndex end
+
+"""
+PL NOTE: Chang'E-3 regolith index 
+"""
+struct CE3Index <: RegolithIndex end
+
+"""
+PL NOTE: Diviner regolith index 
+"""
+struct DivinerIndex <: RegolithIndex end
+
+"""
+PL NOTE: Lunar Source Book regolith index 
+"""
+struct LunarSourceBookIndex <: RegolithIndex end
+
+"""
+PL NOTE: Chang'E-4 regolith index 
+"""
+struct CE4Index <: RegolithIndex end
+
 """
 Abstract type for regolith density models.
 """
@@ -143,6 +169,7 @@ function regolith_density(::CE3LPRDensity, depth)
     return rhod - (rhod - rhos) * exp(-depth/H)
 end
 
+"""
 function regolith_density(::RegolithDensity, depth)
     # a sanity check for when this called outside the regolith
     depth < 0.0m && return 0.0g / cm^3
@@ -150,6 +177,7 @@ function regolith_density(::RegolithDensity, depth)
     DensityLUT(::RegolithDensity, depth)
     return rhod - (rhod - rhos) * exp(-depth/H)
 end
+"""
 
 """
     regolith_density(::StrangwayDensity, depth)
@@ -187,7 +215,7 @@ function regolith_density(::StrangwayDensityCB, depth)
     depth < 0.0cm && return 0.0g / cm^3
 
     # we define a surface density for the minimum value of the LUT
-    depth <= 2.3e-16cm && return 0.80015g / cm^3 ## TODO: CHANGE THE MINIMU AND MAX DENSITY VALUES FOR THIS FUNCTION
+    depth <= 2.3e-16cm && return 1.4g / cm^3 ## TODO: CHANGE THE MINIMU AND MAX DENSITY VALUES FOR THIS FUNCTION
     ## TODO: FIGURE OUT WHAT THE MAX DEPTH SHOULD BE APPLY TO ALL LUTS
 
     # a sanity check for when this called outside the regolith
@@ -303,19 +331,59 @@ end
 
 
 """
-    regolith_index(::StrangwayIndex, depth)
+    regolith_index(::IndexModel, depth, low_temp_corr_factor=0.9)
 
 A refractive index model from Olhoeft & Strangway.
+
+Dielectric constant fit is done by Olhoeft and Strangway
+Peter estimated a 10% reduction for lunar PSR's due to the
+~80 K temperatures compared to the typical lunar temperatures
+of O&S, hence the low_temp_corr_factor.
 """
-function regolith_index(::StrangwayIndex, depth)
+function regolith_index(::StrangwayIndex, depth, low_temp_corr_factor=0.9)
     # get the density at this depth - we need this in g/cm^3
-    ρ = regolith_density(StrangwayDensity(), depth) / (g / cm^3)
-    #ρ = regolith_density(CE4LPRDensity_Dong2020(), depth) / (g / cm^3)
-    # Dielectric constant fit is done by Olhoeft and Strangway
-    # Peter estimated a 10% reduction for lunar PSR's due to the
-    # ~80 K temperatures compared to the typical lunar temperatures
-    # of O&S, hence the factor of 0.9
-    K = 0.9*(1.93^ρ)
+    ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
+
+    return sqrt(K)
+end
+
+function regolith_index(::StrangwayIndexCB, depth, low_temp_corr_factor=0.9)
+    # get the density at this depth - we need this in g/cm^3
+    ρ = regolith_density(StrangwayDensityCB(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
+
+    return sqrt(K)
+end
+
+function regolith_index(::CE3Index, depth, low_temp_corr_factor=0.9)
+    # get the density at this depth - we need this in g/cm^3
+    ρ = regolith_density(CE3LPRDensity(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
+
+    return sqrt(K)
+end
+
+function regolith_index(::CE4Index, depth, low_temp_corr_factor=0.9)
+    # get the density at this depth - we need this in g/cm^3
+    ρ = regolith_density(CE4LPRDensity_Dong2020(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
+
+    return sqrt(K)
+end
+
+function regolith_index(::DivinerIndex, depth, low_temp_corr_factor=0.9)
+    # get the density at this depth - we need this in g/cm^3
+    ρ = regolith_density(DivinerRadiDensity(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
+
+    return sqrt(K)
+end
+
+function regolith_index(::LunarSourceBookIndex, depth, low_temp_corr_factor=0.9)
+    # get the density at this depth - we need this in g/cm^3
+    ρ = regolith_density(LunarSourceBookDensity(), depth) / (g / cm^3)
+    K = low_temp_corr_factor*(1.93^ρ)
 
     return sqrt(K)
 end

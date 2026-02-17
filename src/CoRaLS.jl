@@ -28,7 +28,8 @@ export sky_temperature
 
 # exports from regolith.jl
 export regolith_density, regolith_index
-export ConstantIndex, SurfaceDeepIndex, StrangwayIndex, ConstantDensity, StrangwayDensity, StrangwayDensityCB, CE3LPRDensity
+export ConstantIndex, SurfaceDeepIndex, StrangwayIndex, StrangwayIndexCB, CE3Index, ConstantDensity, StrangwayDensity, StrangwayDensityCB, CE3LPRDensity
+export CE4Index, LunarSourceBookIndex, DivinerIndex, CE4LPRDensity_Dong2020, DivinerRadiDensity, LunarSourceBookDensity
 #regolith_density(CE3LPRDensity(), )
 
 # exports from surface.jl
