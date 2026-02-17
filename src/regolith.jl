@@ -23,33 +23,33 @@ struct SurfaceDeepIndex <: RegolithIndex end
 """
 A refractive index model from Olhoeft & Strangway.
 
-This uses Eq. 1 from Olhoeft and Strangway.
+This uses Eq. 1 from Olhoeft and Strangway. (1975)
 """
 struct StrangwayIndex <: RegolithIndex end
 
 
 """
-PL NOTE: Olhoeft and Strangway Curve B regolith index 
+Olhoeft and Strangway Curve B regolith index (1975)
 """
 struct StrangwayIndexCB <: RegolithIndex end
 
 """
-PL NOTE: Chang'E-3 regolith index 
+Chang'E-3 regolith index 
 """
 struct CE3Index <: RegolithIndex end
 
 """
-PL NOTE: Diviner regolith index 
+Diviner regolith index 
 """
 struct DivinerIndex <: RegolithIndex end
 
 """
-PL NOTE: Lunar Source Book regolith index 
+Lunar Source Book regolith index 
 """
 struct LunarSourceBookIndex <: RegolithIndex end
 
 """
-PL NOTE: Chang'E-4 regolith index 
+Chang'E-4 regolith index 
 """
 struct CE4Index <: RegolithIndex end
 
@@ -170,16 +170,6 @@ function regolith_density(::CE3LPRDensity, depth)
 end
 
 """
-function regolith_density(::RegolithDensity, depth)
-    # a sanity check for when this called outside the regolith
-    depth < 0.0m && return 0.0g / cm^3
-
-    DensityLUT(::RegolithDensity, depth)
-    return rhod - (rhod - rhos) * exp(-depth/H)
-end
-"""
-
-"""
     regolith_density(::StrangwayDensity, depth)
 
 Calculate the density of the regolith in g/cm^3 for depth
@@ -192,7 +182,6 @@ function regolith_density(::StrangwayDensity, depth)
 
     # we define a surface density for the minimum value of the LUT
     depth <= 2.3e-16cm && return 0.80015g / cm^3
-    ## TODO: FIGURE OUT WHAT THE MAX DEPTH SHOULD BE APPLY TO ALL LUTS
 
     # a sanity check for when this called outside the regolith
     depth > 23.80m && return StrangwayDensityLUT(23.80m)
@@ -215,8 +204,7 @@ function regolith_density(::StrangwayDensityCB, depth)
     depth < 0.0cm && return 0.0g / cm^3
 
     # we define a surface density for the minimum value of the LUT
-    depth <= 2.3e-16cm && return 1.4g / cm^3 ## TODO: CHANGE THE MINIMU AND MAX DENSITY VALUES FOR THIS FUNCTION
-    ## TODO: FIGURE OUT WHAT THE MAX DEPTH SHOULD BE APPLY TO ALL LUTS
+    depth <= 2.3e-16cm && return 1.4g / cm^3
 
     # a sanity check for when this called outside the regolith
     depth > 23.80m && return StrangwayDensityCB_LUT(23.80m)
