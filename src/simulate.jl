@@ -349,15 +349,16 @@ function compute_direct(::ScalarGeometry,
     proj = view - (view ⋅ normal) * normal
     proj /= norm(proj) # make sure it is normalized
 
-    # calculate the optical invariant for this event
-    invariant = Nsurf * Rmoon * sin(θ_i)
+    # use Snell's law for the emission angle at Xmax (same as θ_reg)
+    θ_emit = θ_reg
 
-    # and use this to calculate the zenith angle of the emission
-    # vector at the location of Xmax
-    θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
+    # Compute the normal and proj vectors at xmax, use to calculate the emission vector
+    normal_xmax = Xmax / norm(Xmax)
+    proj_xmax = view - (view ⋅ normal_xmax) * normal_xmax
+    proj_xmax /= norm(proj_xmax) # make sure it is normalized
 
     # calculate the emission vector from our two component vectors
-    emit = cos(θ_emit) * normal + sin(θ_emit) * proj
+    emit = cos(θ_emit) * normal_xmax + sin(θ_emit) * proj_xmax
     emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
@@ -513,15 +514,16 @@ function compute_reflected(::ScalarGeometry,
     # along `flat`
     source = origin - (2.0 * ice_depth - depth) * normal - (x1 + x2) * proj
 
-    # calculate the optical invariant for this event
-    invariant = Nsurf * Rmoon * sin(θ_i)
+    # use Snell's law for the emission angle at Xmax (same as θ_reg)
+    θ_emit = θ_reg
 
-    # and use this to calculate the zenith angle of the emission
-    # vector at the location of Xmax
-    θ_emit = asin(invariant / ((Rmoon - depth) * NXmax) |> NoUnits)
+    # Compute the normal and proj vectors at xmax, use to calculate the emission vector
+    normal_xmax = source / norm(source)
+    proj_xmax = view - (view ⋅ normal_xmax) * normal_xmax
+    proj_xmax /= norm(proj_xmax) # make sure it is normalized
 
     # calculate the emission vector from our two component vectors
-    emit = -cos(θ_emit) * normal + sin(θ_emit) * proj
+    emit = -cos(θ_emit) * normal_xmax + sin(θ_emit) * proj_xmax
     emit /= norm(emit) # make sure it is normalized
 
     # calculate the off-axis angle - angle between emission and axis
@@ -538,11 +540,7 @@ function compute_reflected(::ScalarGeometry,
     pol = -emit × (emit × axis)
     pol /= norm(pol) # fixes some tiny rounding errors
 
-    # for a radially stratified atmosphere, n*r*sin(zenith) is conserved
-    # at every step along the ray's path as it refracts through the changing
-    # regolith density. We use this to calculate the angle at the ice layer
-    # although we currently ignore the additional path length due to the reflection
-    θ_ice = asin(invariant / ((Rmoon - ice_depth) * Nrego_at_ice) |> NoUnits)
+    # calculate the angle at the ice layer using Snell's law
     θ_ice = asin(Nsurf * sin(θ_i) / Nrego_at_ice)
 
     # the vector incident at the surface
@@ -596,8 +594,8 @@ function compute_reflected(::ScalarGeometry,
         # get the transmission from the regolith into the ice
         sub_tpar, sub_tperp = fresnel_coeffs(θ_ice, Nrego_at_ice, Nice)[3:4]
 
-        # get the refracted angle in the ice layer using Spherical Snell's law
-        θ_bed = asin((invariant / ((Rmoon - ice_depth - 0.5 * ice_thickness) * Nice)) |> NoUnits)
+        # get the refracted angle in the ice layer using Snell's law
+        θ_bed = asin(Nrego_at_ice * sin(θ_ice) / Nice)
 
         # get the reflection coefficient from at the ice->regolith
         # or ice->bedrock interface
